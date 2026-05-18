@@ -112,13 +112,13 @@ import ReferirAlias from '../Pages/Comunidad/Referir.jsx';
 
 import FinalizarCompra from '../Pages/MarketPlace/FinalizarCompra.jsx';
 
-import Compras from "../Pages/MarketPlace/Compras.jsx";
+import Compras from '../Pages/MarketPlace/Compras.jsx';
 import UsuarioPage from '../Pages/Usuarios/UsuarioPage';
-
 
 import PreRegistroConductor2 from '../components/Taxiz/PreRegistroConductor2.jsx';
 import ConductoresAgencia from '../components/Cowork/ConductoresAgencia.jsx';
 import TestToken from '../components/TestToken.jsx';
+import FormPreRegisterForSteps from '../Pages/Taxis/FormPreRegisterForSteps.jsx';
 
 // ---------- Wrappers (usar useParams) ----------
 const EditarContenidoWrapper = () => {
@@ -169,7 +169,6 @@ const Rutas = () => (
 
     {/* Gana / GanaRoute */}
     <Route path="/gana" element={<GanaRoute />} />
-    
 
     {/* Taxis */}
     <Route path="/taxis" element={<TaxisRoute />} />
@@ -182,7 +181,6 @@ const Rutas = () => (
     <Route path="/taxis/viaje/:travelId" element={<TripView />} />
 
     <Route path="/herramientas/agencia/conductores" element={<ConductoresAgencia />} />
-
 
     {/* Food / Restaurantes */}
     <Route path="/food" element={<RestaurantesRoute />} />
@@ -217,11 +215,8 @@ const Rutas = () => (
     <Route path="/cartera/:moneda" element={<OpWalletRoute />} />
     <Route path="/cartera" element={<OpWalletRoute />} />
     <Route path="/comprar-tokens" element={<OpWalletRoute />} />
-    
-    
-    
-    
-    <Route path="/taxis/preregistrar" element={<PreRegistroConductor2 />} />
+
+    <Route path="/taxis/preregistrar" element={<FormPreRegisterForSteps />} />
 
     {/* Academia / Coowork */}
     <Route path="/academia" element={<Rompecabezas />} />
@@ -257,8 +252,6 @@ const Rutas = () => (
     <Route path="/eventos" element={<EventosPage />} />
 
     {/* Clubs / Bitácoras */}
-    
-      
 
     {/* Contenidos / Cursos */}
     <Route path="/contenidos/agregar-contenido" element={<AgregarContenido />} />
@@ -274,15 +267,12 @@ const Rutas = () => (
 
     {/* Membresías */}
     <Route path="/membresias" element={<Membresias />} />
-    
-    
+
     <Route path="/membresias/pagar/*" element={<ProbarMembresia />} />
     <Route path="/membresias/pago/plan/:planId" element={<ProbarMembresia />} />
     <Route path="/membresias/adquirir/*" element={<MembershipCheckout />} />
     <Route path="/mi-membresia" element={<MiMembresia />} />
     <Route path="/activatumembresia" element={<ActivaTuMembresia />} />
-    
-
 
     {/* Comunidad */}
     <Route path="/comunidad" element={<ComunidadRoute />} />
@@ -297,7 +287,6 @@ const Rutas = () => (
     <Route path="/referir/*" element={<Referir />} />
     <Route path="/agregar-club/:club" element={<Referir />} />
 
-    
     {/* Misc / Tests */}
     <Route path="/notificationtester" element={<NotificationTester />} />
     <Route path="/precargador" element={<PreCargador />} />
