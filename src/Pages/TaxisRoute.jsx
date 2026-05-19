@@ -17,8 +17,8 @@ const TaxisRoute = () => {
   const actualRoles = Array.isArray(roles)
     ? roles
     : Array.isArray(roles?.roles)
-    ? roles.roles
-    : [];
+      ? roles.roles
+      : [];
 
   const [activeTab, setActiveTab] = useState(null);
   const [showTabs, setShowTabs] = useState(false);
@@ -81,9 +81,7 @@ const TaxisRoute = () => {
           animate={{ opacity: 1 }}
         >
           <CircularProgress size={56} />
-          <Typography sx={{ mt: 2 }}>
-            Verificando permisos...
-          </Typography>
+          <Typography sx={{ mt: 2 }}>Verificando permisos...</Typography>
         </motion.div>
       </Box>
     );
@@ -104,10 +102,15 @@ const TaxisRoute = () => {
   // ============================
   return (
     <div style={{ width: '90%', height: '100vh', padding: '20px' }}>
-      
       {/* Tabs SOLO si es conductor */}
       {isConductor && showTabs && !hideTabs && (
-        <div style={{ display: 'flex', borderBottom: '2px solid #ccc', marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            borderBottom: '2px solid #ccc',
+            marginBottom: '20px',
+          }}
+        >
           <button
             onClick={() => setActiveTab('pasajero')}
             style={{

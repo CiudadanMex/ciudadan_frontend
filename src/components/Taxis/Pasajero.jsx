@@ -1,11 +1,13 @@
 // src/components/Taxis/Pasajero.jsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Button, Typography, Box } from '@mui/material';
 import io from 'socket.io-client';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/taxis.css';
 import useGoogleMaps from '../../hooks/UseGoogleMaps.jsx';
-import AcceptTrip from "./AcceptTrip.jsx";
+import BottomSheet from '../BottomSheet.jsx';
+import AcceptTrip from './AcceptTrip.jsx';
 import taxiIcon from '../../assets/taxi_marker.png';
 
 const DEFAULT_FROM = { lat: 19.432608, lng: -99.133209 };
@@ -27,6 +29,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [error, setError] = useState(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [sheetState, setSheetState] = useState('collapsed');
 
   const { mapRef, fromMarkerRef, toMarkerRef } = useGoogleMaps(
     fromCoordinates,
@@ -38,7 +41,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
     setFromAddress,
     setToAddress,
     setGoogleMapsLoaded,
-    googleMapsLoaded
+    googleMapsLoaded,
   );
 
   const directionsRendererRef = useRef(null);
@@ -70,10 +73,73 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
   const socketUrlToHttp = (url = '') => {
     if (!url) return null;
     try {
-      return url.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://');
+      return url
+        .replace(/^wss:\/\//i, 'https://')
+        .replace(/^ws:\/\//i, 'http://');
     } catch (e) {
       return null;
     }
+  };
+
+  const getSheetContent = () => {
+    if (loadingSearch) {
+      return (
+        <>
+          <Typography variant='h6'>Buscando conductores...</Typography>
+          <Typography>
+            Estamos buscando taxis cercanos. Por favor espera.
+          </Typography>
+          {sheetState === 'full' && (
+            <Button
+              variant='outlined'
+              color='secondary'
+              onClick={cancelarBusqueda}
+              sx={{ mt: 2 }}
+            >
+              Cancelar búsqueda
+            </Button>
+          )}
+        </>
+      );
+    }
+    if (offers.length > 0) {
+      return (
+        <>
+          <Typography variant='h6'>
+            Ofertas disponibles ({offers.length})
+          </Typography>
+          <Typography>
+            Hay conductores cerca. Expande para ver detalles y aceptar.
+          </Typography>
+          {sheetState === 'full' && (
+            <Box sx={{ mt: 1 }}>
+              {offers.map((offer) => (
+                <Button
+                  key={offer.id}
+                  variant='contained'
+                  size='small'
+                  onClick={() => {
+                    setSelectedOffer(offer);
+                    setIsModalOpen(true);
+                  }}
+                  sx={{ m: 0.5 }}
+                >
+                  Oferta ${offer.price}
+                </Button>
+              ))}
+            </Box>
+          )}
+        </>
+      );
+    }
+    return (
+      <>
+        <Typography variant='h6'>Planifica tu viaje</Typography>
+        <Typography>
+          Ingresa origen y destino y presiona "Buscar Conductores".
+        </Typography>
+      </>
+    );
   };
 
   // Crear marker + infoWindow para una oferta
@@ -87,7 +153,10 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
 
       try {
         const { coordinates, price, id } = offer;
-        const position = new window.google.maps.LatLng(coordinates.lat, coordinates.lng);
+        const position = new window.google.maps.LatLng(
+          coordinates.lat,
+          coordinates.lng,
+        );
 
         // Marker
         const marker = new window.google.maps.Marker({
@@ -116,34 +185,36 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         // Abrir infoWindow automáticamente
         infoWindow.open(mapRef.current, marker);
 
+        // Aplicar estilos al "globito" amarillo cuando el DOM del InfoWindow esté listo
+        window.google.maps.event.addListener(infoWindow, 'domready', () => {
+          try {
+            const contentEl = document.getElementById(`offer-info-${id}`);
+            if (contentEl) {
+              contentEl.style.background = '#fff200'; // amarillo del branding
+              contentEl.style.color = '#111';
+              contentEl.style.padding = '4px 5px';
+              contentEl.style.borderRadius = '10px';
+              contentEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
+              contentEl.style.minWidth = '140px';
+              contentEl.style.textAlign = 'left';
+            }
 
-         // Aplicar estilos al "globito" amarillo cuando el DOM del InfoWindow esté listo
-  window.google.maps.event.addListener(infoWindow, 'domready', () => {
-    try {
-      const contentEl = document.getElementById(`offer-info-${id}`);
-      if (contentEl) {
-        contentEl.style.background = '#fff200'; // amarillo del branding
-        contentEl.style.color = '#111';
-        contentEl.style.padding = '4px 5px';
-        contentEl.style.borderRadius = '10px';
-        contentEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
-        contentEl.style.minWidth = '140px';
-        contentEl.style.textAlign = 'left';
-      }
-
-      // Intentamos suavizar/ocultar el fondo por defecto del InfoWindow para que se vea solo tu chip
-      const iwOuter = document.querySelector('.gm-style-iw');
-      if (iwOuter) {
-        // Hacer transparente el contenedor principal
-        iwOuter.style.background = 'transparent';
-        // Normalmente, el sibling anterior contiene sombras/fondos; lo ocultamos
-        const iwBackground = iwOuter.previousElementSibling;
-        if (iwBackground) iwBackground.style.display = 'none';
-      }
-    } catch (errSty) {
-      console.warn('[Pasajero] fallo aplicando estilos InfoWindow:', errSty);
-    }
-  });
+            // Intentamos suavizar/ocultar el fondo por defecto del InfoWindow para que se vea solo tu chip
+            const iwOuter = document.querySelector('.gm-style-iw');
+            if (iwOuter) {
+              // Hacer transparente el contenedor principal
+              iwOuter.style.background = 'transparent';
+              // Normalmente, el sibling anterior contiene sombras/fondos; lo ocultamos
+              const iwBackground = iwOuter.previousElementSibling;
+              if (iwBackground) iwBackground.style.display = 'none';
+            }
+          } catch (errSty) {
+            console.warn(
+              '[Pasajero] fallo aplicando estilos InfoWindow:',
+              errSty,
+            );
+          }
+        });
 
         // Listener en marker: al click abrir modal y seleccionar oferta
         const markerClickListener = marker.addListener('click', () => {
@@ -152,20 +223,24 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         });
 
         // También añadir listener para el contenido del InfoWindow (domready)
-        const domReadyListener = window.google.maps.event.addListener(infoWindow, 'domready', () => {
-          const elem = document.getElementById(`offer-info-${id}`);
-          if (elem) {
-            // hacer que click en el recuadro abra modal
-            elem.style.cursor = 'pointer';
-            if (!elem._hasClick) {
-              elem.addEventListener('click', () => {
-                setSelectedOffer({ id, coordinates, price });
-                setIsModalOpen(true);
-              });
-              elem._hasClick = true;
+        const domReadyListener = window.google.maps.event.addListener(
+          infoWindow,
+          'domready',
+          () => {
+            const elem = document.getElementById(`offer-info-${id}`);
+            if (elem) {
+              // hacer que click en el recuadro abra modal
+              elem.style.cursor = 'pointer';
+              if (!elem._hasClick) {
+                elem.addEventListener('click', () => {
+                  setSelectedOffer({ id, coordinates, price });
+                  setIsModalOpen(true);
+                });
+                elem._hasClick = true;
+              }
             }
-          }
-        });
+          },
+        );
 
         // guardar en refs
         offersRef.current.push({
@@ -176,12 +251,15 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         });
 
         // actualizar state (solo metadatos, sin los objetos google para evitar serialización)
-        setOffers((prev) => [...prev, { id, coordinates, price, timestamp: offer.timestamp }]);
+        setOffers((prev) => [
+          ...prev,
+          { id, coordinates, price, timestamp: offer.timestamp },
+        ]);
       } catch (e) {
         console.warn('[Pasajero] error creando marker para oferta', e);
       }
     },
-    [mapRef]
+    [mapRef],
   );
 
   // Procesar ofertas pendientes cuando el mapa esté listo
@@ -193,14 +271,22 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
   }, [googleMapsLoaded, createMarkerForOffer]);
 
   useEffect(() => {
-    console.log('[Pasajero] montaje: intentando conectar socket a', process.env.REACT_APP_SOCKET_URL);
+    console.log(
+      '[Pasajero] montaje: intentando conectar socket a',
+      process.env.REACT_APP_SOCKET_URL,
+    );
     try {
       socketRef.current = io(process.env.REACT_APP_SOCKET_URL, {
         transports: ['websocket'],
       });
 
       socketRef.current.on('connect', () => {
-        console.log('[Socket] conectado id=', socketRef.current.id, 'url=', process.env.REACT_APP_SOCKET_URL);
+        console.log(
+          '[Socket] conectado id=',
+          socketRef.current.id,
+          'url=',
+          process.env.REACT_APP_SOCKET_URL,
+        );
       });
 
       socketRef.current.on('connect_error', (err) => {
@@ -212,14 +298,20 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       });
 
       socketRef.current.on('drivers-found', (drivers) => {
-        console.log('[Socket] evento drivers-found recibido. payload:', safeStringify(drivers, 4000));
+        console.log(
+          '[Socket] evento drivers-found recibido. payload:',
+          safeStringify(drivers, 4000),
+        );
         try {
           if (Array.isArray(drivers)) {
             drivers.forEach((d) => {
               if (d.coordinates && mapRef && mapRef.current) {
                 // pintar marcadores de drivers (sin infoWindow)
                 try {
-                  const pos = new window.google.maps.LatLng(d.coordinates.lat, d.coordinates.lng);
+                  const pos = new window.google.maps.LatLng(
+                    d.coordinates.lat,
+                    d.coordinates.lng,
+                  );
                   const marker = new window.google.maps.Marker({
                     position: pos,
                     map: mapRef.current,
@@ -257,18 +349,32 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       // NUEVO: escucha del evento de oferta de viaje
       socketRef.current.on('ofertaviaje', (payload) => {
         // payload esperado: { coordinates: { lat, lng }, price: 123, ... }
-        console.log('[Socket] ofertaviaje recibido:', safeStringify(payload, 2000));
+        console.log(
+          '[Socket] ofertaviaje recibido:',
+          safeStringify(payload, 2000),
+        );
         try {
-          const coordinates = payload.coordinates || payload.coords || payload.location || null;
+          const coordinates =
+            payload.coordinates || payload.coords || payload.location || null;
           const price = payload.precio ?? payload.price ?? null;
-          if (!coordinates || typeof coordinates.lat !== 'number' || typeof coordinates.lng !== 'number') {
-            console.warn('[ofertaviaje] payload sin coordinates válidas:', payload);
+          if (
+            !coordinates ||
+            typeof coordinates.lat !== 'number' ||
+            typeof coordinates.lng !== 'number'
+          ) {
+            console.warn(
+              '[ofertaviaje] payload sin coordinates válidas:',
+              payload,
+            );
             return;
           }
           const id = `offer-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
           const offer = {
             id,
-            coordinates: { lat: Number(coordinates.lat), lng: Number(coordinates.lng) },
+            coordinates: {
+              lat: Number(coordinates.lat),
+              lng: Number(coordinates.lng),
+            },
             price,
             timestamp: new Date().toISOString(),
             raw: payload,
@@ -284,7 +390,9 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
     }
 
     return () => {
-      console.log('[Pasajero] desmontando componente: limpiando socket listeners y markers');
+      console.log(
+        '[Pasajero] desmontando componente: limpiando socket listeners y markers',
+      );
       try {
         if (socketRef.current) {
           socketRef.current.off('drivers-found');
@@ -310,10 +418,14 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
             if (o.marker) {
               // quitar listeners si existen
               if (o._listeners && o._listeners.markerClickListener) {
-                window.google.maps.event.removeListener(o._listeners.markerClickListener);
+                window.google.maps.event.removeListener(
+                  o._listeners.markerClickListener,
+                );
               }
               if (o._listeners && o._listeners.domReadyListener) {
-                window.google.maps.event.removeListener(o._listeners.domReadyListener);
+                window.google.maps.event.removeListener(
+                  o._listeners.domReadyListener,
+                );
               }
               o.marker.setMap(null);
             }
@@ -361,22 +473,25 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       (err) => {
         console.warn('[Pasajero] geolocation error:', err);
       },
-      { maximumAge: 1000 * 60 * 5, timeout: 5000 }
+      { maximumAge: 1000 * 60 * 5, timeout: 5000 },
     );
   }, [mapRef]);
 
   useEffect(() => {
     if (!mapRef || !mapRef.current || !window.google) return;
-    if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService();
+    if (!directionsServiceRef.current)
+      directionsServiceRef.current = new window.google.maps.DirectionsService();
     if (!directionsRendererRef.current) {
-      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
-        suppressMarkers: true,
-        polylineOptions: {
-          strokeColor: '#6d0c5dff',
-          strokeWeight: 6,
-          strokeOpacity: 0.95,
+      directionsRendererRef.current = new window.google.maps.DirectionsRenderer(
+        {
+          suppressMarkers: true,
+          polylineOptions: {
+            strokeColor: '#6d0c5dff',
+            strokeWeight: 6,
+            strokeOpacity: 0.95,
+          },
         },
-      });
+      );
       directionsRendererRef.current.setMap(mapRef.current);
     }
     return () => {
@@ -390,13 +505,23 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
 
   const drawRouteOnMap = useCallback(
     (origin, destination) => {
-      if (!window.google || !directionsServiceRef.current || !directionsRendererRef.current) {
+      if (
+        !window.google ||
+        !directionsServiceRef.current ||
+        !directionsRendererRef.current
+      ) {
         console.warn('[drawRouteOnMap] google/directions no listos');
         return;
       }
 
-      const originParam = typeof origin === 'string' ? origin : { lat: origin.lat, lng: origin.lng };
-      const destParam = typeof destination === 'string' ? destination : { lat: destination.lat, lng: destination.lng };
+      const originParam =
+        typeof origin === 'string'
+          ? origin
+          : { lat: origin.lat, lng: origin.lng };
+      const destParam =
+        typeof destination === 'string'
+          ? destination
+          : { lat: destination.lat, lng: destination.lng };
 
       directionsServiceRef.current.route(
         {
@@ -406,29 +531,43 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         },
         (result, status) => {
           console.log('[drawRouteOnMap] Directions callback status=', status);
-          if (status === window.google.maps.DirectionsStatus.OK || status === 'OK') {
+          if (
+            status === window.google.maps.DirectionsStatus.OK ||
+            status === 'OK'
+          ) {
             directionsRendererRef.current.setDirections(result);
             try {
               const leg = result.routes[0].legs[0];
               const start = leg.start_location;
               const end = leg.end_location;
-              if (fromMarkerRef && fromMarkerRef.current) fromMarkerRef.current.setPosition(start);
-              if (toMarkerRef && toMarkerRef.current) toMarkerRef.current.setPosition(end);
+              if (fromMarkerRef && fromMarkerRef.current)
+                fromMarkerRef.current.setPosition(start);
+              if (toMarkerRef && toMarkerRef.current)
+                toMarkerRef.current.setPosition(end);
               if (mapRef && mapRef.current && mapRef.current.fitBounds) {
                 const bounds = new window.google.maps.LatLngBounds();
                 result.routes[0].overview_path.forEach((p) => bounds.extend(p));
                 mapRef.current.fitBounds(bounds);
               }
             } catch (e) {
-              console.warn('[drawRouteOnMap] error updating markers after route', e);
+              console.warn(
+                '[drawRouteOnMap] error updating markers after route',
+                e,
+              );
             }
           } else {
             console.error('[drawRouteOnMap] error', status, result);
           }
-        }
+        },
       );
     },
-    [directionsRendererRef, directionsServiceRef, mapRef, fromMarkerRef, toMarkerRef]
+    [
+      directionsRendererRef,
+      directionsServiceRef,
+      mapRef,
+      fromMarkerRef,
+      toMarkerRef,
+    ],
   );
 
   useEffect(() => {
@@ -451,13 +590,24 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
     setFromMarkerPosition(bCoords);
     setToMarkerPosition(aCoords);
 
-    if (fromMarkerRef && fromMarkerRef.current) fromMarkerRef.current.setPosition(bCoords);
-    if (toMarkerRef && toMarkerRef.current) toMarkerRef.current.setPosition(aCoords);
+    if (fromMarkerRef && fromMarkerRef.current)
+      fromMarkerRef.current.setPosition(bCoords);
+    if (toMarkerRef && toMarkerRef.current)
+      toMarkerRef.current.setPosition(aCoords);
 
     if (mapRef && mapRef.current) mapRef.current.setCenter(bCoords);
 
     drawRouteOnMap(bCoords, aCoords);
-  }, [fromAddress, toAddress, fromCoordinates, toCoordinates, mapRef, fromMarkerRef, toMarkerRef, drawRouteOnMap]);
+  }, [
+    fromAddress,
+    toAddress,
+    fromCoordinates,
+    toCoordinates,
+    mapRef,
+    fromMarkerRef,
+    toMarkerRef,
+    drawRouteOnMap,
+  ]);
 
   // BUSCAR TAXISTAS
   const buscarTaxistas = async () => {
@@ -493,7 +643,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
               destinationCoordinates: payload.destinationCoordinates,
               originAdress: payload.originAddress,
               destinationAdress: payload.destinationAddress,
-              broadcast: true
+              broadcast: true,
             }),
           });
           const text = await resp.text().catch(() => null);
@@ -501,9 +651,10 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
           console.warn('[buscarTaxistas] error en POST /test/send-trip:', e);
         }
       } else {
-        console.warn('[buscarTaxistas] no se pudo determinar backendBase para POST /test/send-trip — revisa env vars');
+        console.warn(
+          '[buscarTaxistas] no se pudo determinar backendBase para POST /test/send-trip — revisa env vars',
+        );
       }
-
     } catch (err) {
       console.error('[buscarTaxistas] error general:', err);
       setError(err.message || 'Error buscando taxistas');
@@ -542,10 +693,14 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
     try {
       // Realiza la llamada al backend que creamos: POST /api/aceptar-viaje
       if (!backendBase) {
-        console.warn('[acceptOffer] backendBase no configurado. Revisa REACT_APP_SOCKET_URL o env vars.');
+        console.warn(
+          '[acceptOffer] backendBase no configurado. Revisa REACT_APP_SOCKET_URL o env vars.',
+        );
         // procedemos con el comportamiento antiguo (cerrar modal y remover marker)
         try {
-          const idx = offersRef.current.findIndex((o) => o.id === selectedOffer?.id);
+          const idx = offersRef.current.findIndex(
+            (o) => o.id === selectedOffer?.id,
+          );
           if (idx !== -1) {
             const o = offersRef.current[idx];
             if (o.infoWindow) o.infoWindow.close();
@@ -575,7 +730,10 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         solicitado: new Date().toISOString(),
         travelid: selectedOffer.id ?? undefined,
         observaciones: selectedOffer.raw?.meta?.note ?? '',
-        costo: typeof selectedOffer.price === 'number' ? selectedOffer.price : Number(selectedOffer.price) || null
+        costo:
+          typeof selectedOffer.price === 'number'
+            ? selectedOffer.price
+            : Number(selectedOffer.price) || null,
       };
 
       let respJson = null;
@@ -594,7 +752,11 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
         if (!resp.ok) {
           console.warn('[acceptOffer] respuesta no ok:', resp.status, respJson);
           // mostrar error y no navegar
-          setError((respJson && respJson.error) ? respJson.error : `Error server ${resp.status}`);
+          setError(
+            respJson && respJson.error
+              ? respJson.error
+              : `Error server ${resp.status}`,
+          );
           return;
         }
       } catch (err) {
@@ -604,11 +766,18 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       }
 
       // Si llegamos aquí, la creación en Strapi fue (probablemente) exitosa
-      const travelIdReturned = (respJson && respJson.travelId) ? respJson.travelId : (respJson && respJson.created && respJson.created.id ? String(respJson.created.id) : null);
+      const travelIdReturned =
+        respJson && respJson.travelId
+          ? respJson.travelId
+          : respJson && respJson.created && respJson.created.id
+            ? String(respJson.created.id)
+            : null;
 
       // comportamiento antiguo: remover marcador y cerrar modal
       try {
-        const idx = offersRef.current.findIndex((o) => o.id === selectedOffer?.id);
+        const idx = offersRef.current.findIndex(
+          (o) => o.id === selectedOffer?.id,
+        );
         if (idx !== -1) {
           const o = offersRef.current[idx];
           if (o.infoWindow) o.infoWindow.close();
@@ -637,116 +806,141 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
   };
 
   const cancelarBusqueda = () => {
-    setLoadingSearch(false)
-    };
-  
+    setLoadingSearch(false);
+  };
 
   return (
-    <div className="taxis-container">
-      <h3 className="trip-title" style={{ textAlign: 'center' }}>Buscar un viaje</h3>
+    <>
+      <div className='taxis-container'>
+        <h3
+          className='trip-title'
+          style={{ textAlign: 'center' }}
+        >
+          Buscar un viaje
+        </h3>
 
-      <div className="inputs-row improved-row">
-        <div className="input-wrap">
-          <input
-            id="from-input"
-            type="text"
-            placeholder="Origen (tu ubicación por defecto)"
-            value={fromAddress}
-            onChange={(e) => setFromAddress(e.target.value)}
-            className="lugar-input pasajero-origen"
-          />
+        <div className='inputs-row improved-row'>
+          <div className='input-wrap'>
+            <input
+              id='from-input'
+              type='text'
+              placeholder='Origen (tu ubicación por defecto)'
+              value={fromAddress}
+              onChange={(e) => setFromAddress(e.target.value)}
+              className='lugar-input pasajero-origen'
+            />
+          </div>
+
+          <div className='swap-wrap'>
+            <button
+              title='Intercambiar origen/destino'
+              onClick={swapOriginDestination}
+              className='swap-button'
+              aria-label='Intercambiar origen y destino'
+            >
+              ⇅
+            </button>
+          </div>
+
+          <div className='input-wrap'>
+            <input
+              id='to-input'
+              type='text'
+              placeholder='Destino'
+              value={toAddress}
+              onChange={(e) => setToAddress(e.target.value)}
+              className='lugar-input pasajero-destino'
+            />
+          </div>
         </div>
 
-        <div className="swap-wrap">
+        <div className='controls-row'>
           <button
-            title="Intercambiar origen/destino"
-            onClick={swapOriginDestination}
-            className="swap-button"
-            aria-label="Intercambiar origen y destino"
+            onClick={buscarTaxistas}
+            disabled={loadingSearch}
+            className='buscar-taxistas formulario-pasajero pasajero-buscar'
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              backgroundColor: '#ff4081',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: loadingSearch ? 'default' : 'pointer',
+            }}
           >
-            ⇅
+            {loadingSearch ? 'Buscando taxistas...' : 'Buscar Conductores'}
+          </button>
+          {loadingSearch && (
+            <button
+              onClick={cancelarBusqueda}
+              className='cancelar-busqueda'
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                backgroundColor: '#5f5a5bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                marginLeft: 8,
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            onClick={centerOnOrigin}
+            className='center-button'
+            title='Centrar en origen'
+          >
+            📍
           </button>
         </div>
 
-        <div className="input-wrap">
-          <input
-            id="to-input"
-            type="text"
-            placeholder="Destino"
-            value={toAddress}
-            onChange={(e) => setToAddress(e.target.value)}
-            className="lugar-input pasajero-destino"
-          />
-        </div>
-      </div>
-
-      <div className="controls-row">
-        <button
-          onClick={buscarTaxistas}
-          disabled={loadingSearch}
-          className="buscar-taxistas formulario-pasajero pasajero-buscar"
+        {error && (
+          <div className='error-text'>
+            {typeof error === 'string'
+              ? error
+              : error && (error.error || error.message)
+                ? String(error.error || error.message)
+                : JSON.stringify(error)}
+          </div>
+        )}
+        <div
+          className='taxis-map formulario-pasajero'
           style={{
-            flex: 1,
-            padding: '12px 16px',
-            backgroundColor: '#ff4081',
-            color: 'white',
-            border: 'none',
+            width: '100%',
+            height: '60vh',
             borderRadius: 8,
-            cursor: loadingSearch ? 'default' : 'pointer',
+            overflow: 'hidden',
           }}
         >
-          {loadingSearch ? 'Buscando taxistas...' : 'Buscar Conductores'}
-          
-        </button>
-        {loadingSearch && (
-  <button
-    onClick={cancelarBusqueda}
-    className="cancelar-busqueda"
-    style={{
-      flex: 1,
-      padding: "12px 16px",
-      backgroundColor: "#5f5a5bff",
-      color: "white",
-      border: "none",
-      borderRadius: 8,
-      cursor: "pointer",
-      marginLeft: 8,
-    }}
-  >
-    Cancelar
-  </button>
-)}
-        <button
-          onClick={centerOnOrigin}
-          className="center-button"
-          title="Centrar en origen"
-        >
-          📍
-        </button>
-      </div>
-
-      {error && (
-        <div className="error-text">
-          {typeof error === 'string'
-            ? error
-            : (error && (error.error || error.message))
-            ? String(error.error || error.message)
-            : JSON.stringify(error)}
+          <div
+            id='map'
+            style={{ width: '100%', height: '100%' }}
+          />
         </div>
-      )}
-      <div className="taxis-map formulario-pasajero" style={{ width: '100%', height: '60vh', borderRadius: 8, overflow: 'hidden' }}>
-        <div id="map" style={{ width: '100%', height: '100%' }} />
-      </div>
 
-      {/* Modal simple para oferta */}
-      {isModalOpen && selectedOffer && (
-      <AcceptTrip
-          selectedOffer={selectedOffer}
-          acceptOffer={acceptOffer}
-          closeModal={closeModal}
-        />
-      )}
-    </div>
+        {/* Modal simple para oferta */}
+        {isModalOpen && selectedOffer && (
+          <AcceptTrip
+            selectedOffer={selectedOffer}
+            acceptOffer={acceptOffer}
+            closeModal={closeModal}
+          />
+        )}
+      </div>
+      <BottomSheet
+        initialState='collapsed'
+        onStateChange={setSheetState}
+        collapsedHeight={90}
+        mediumHeight={380}
+        fullHeight={window.innerHeight - 50}
+      >
+        {getSheetContent()}
+      </BottomSheet>
+    </>
   );
 };
 

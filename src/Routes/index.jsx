@@ -112,9 +112,8 @@ import ReferirAlias from '../Pages/Comunidad/Referir.jsx';
 
 import FinalizarCompra from '../Pages/MarketPlace/FinalizarCompra.jsx';
 
-import Compras from "../Pages/MarketPlace/Compras.jsx";
+import Compras from '../Pages/MarketPlace/Compras.jsx';
 import UsuarioPage from '../Pages/Usuarios/UsuarioPage';
-
 
 import PreRegistroConductor2 from '../components/Taxiz/PreRegistroConductor2.jsx';
 import ConductoresAgencia from '../components/Cowork/ConductoresAgencia.jsx';
@@ -123,23 +122,48 @@ import TestToken from '../components/TestToken.jsx';
 // ---------- Wrappers (usar useParams) ----------
 const EditarContenidoWrapper = () => {
   const { slug } = useParams();
-  return <EditarContenido filtros="editar" parametros={slug} />;
+  return (
+    <EditarContenido
+      filtros='editar'
+      parametros={slug}
+    />
+  );
 };
 const EliminarContenidoWrapper = () => {
   const { slug } = useParams();
-  return <EliminarContenido filtros="eliminar" parametros={slug} />;
+  return (
+    <EliminarContenido
+      filtros='eliminar'
+      parametros={slug}
+    />
+  );
 };
 const EditarCursoWrapper = () => {
   const { slug } = useParams();
-  return <EditarCurso filtros="editar" parametros={slug} />;
+  return (
+    <EditarCurso
+      filtros='editar'
+      parametros={slug}
+    />
+  );
 };
 const EliminarCursoWrapper = () => {
   const { slug } = useParams();
-  return <EliminarCurso filtros="eliminar" parametros={slug} />;
+  return (
+    <EliminarCurso
+      filtros='eliminar'
+      parametros={slug}
+    />
+  );
 };
 const EliminarProductoWrapper = () => {
   const { slug } = useParams();
-  return <EliminarProducto filtros="eliminar" parametros={slug} />;
+  return (
+    <EliminarProducto
+      filtros='eliminar'
+      parametros={slug}
+    />
+  );
 };
 const WikiWrapper = () => {
   const { slug } = useParams();
@@ -156,161 +180,450 @@ const WikiLayout = ({ children }) => (
 const Rutas = () => (
   <Routes>
     {/* RUTAS NORMALES */}
-    <Route path="/" element={<HomeRoute />} />
-    <Route path="/probador" element={<Probador />} />
-    <Route path="/registrar" element={<ReferirAlias />} />
+    <Route
+      path='/'
+      element={<HomeRoute />}
+    />
+    <Route
+      path='/probador'
+      element={<Probador />}
+    />
+    <Route
+      path='/registrar'
+      element={<ReferirAlias />}
+    />
 
     {/* Callback / Auth */}
-    <Route path="/callback" element={<CallbackPage />} />
+    <Route
+      path='/callback'
+      element={<CallbackPage />}
+    />
 
     {/* Notificaciones */}
-    <Route path="/notificaciones" element={<AllNotificaciones />} />
-    <Route path="/notificacion/:id" element={<Notificacion />} />
+    <Route
+      path='/notificaciones'
+      element={<AllNotificaciones />}
+    />
+    <Route
+      path='/notificacion/:id'
+      element={<Notificacion />}
+    />
 
     {/* Gana / GanaRoute */}
-    <Route path="/gana" element={<GanaRoute />} />
-    
+    <Route
+      path='/gana'
+      element={<GanaRoute />}
+    />
 
     {/* Taxis */}
-    <Route path="/taxis" element={<TaxisRoute />} />
-    <Route path="/taxis/conductor/registro" element={<RegistroConductor />} />
-    <Route path="/taxis/conductor/preregistro" element={<PreRegistroConductor />} />
-    <Route path="/taxis/conductor/esperando" element={<Conductor />} />
-    <Route path="/taxis/conductor/requisitos" element={<RequisitosConductor />} />
-    <Route path="/taxis/pasajero/registro" element={<RegistroPasajero />} />
-    <Route path="/taxis/pasajero/viaje" element={<Pasajero />} />
-    <Route path="/taxis/viaje/:travelId" element={<TripView />} />
+    <Route
+      path='/taxis'
+      element={<TaxisRoute />}
+    />
+    <Route
+      path='/taxis/conductor/registro'
+      element={<RegistroConductor />}
+    />
+    <Route
+      path='/taxis/conductor/preregistro'
+      element={<PreRegistroConductor />}
+    />
+    <Route
+      path='/taxis/conductor/esperando'
+      element={<Conductor />}
+    />
+    <Route
+      path='/taxis/conductor/requisitos'
+      element={<RequisitosConductor />}
+    />
+    <Route
+      path='/taxis/pasajero/registro'
+      element={<RegistroPasajero />}
+    />
+    <Route
+      path='/taxis/pasajero/viaje'
+      element={<Pasajero />}
+    />
+    <Route
+      path='/taxis/viaje/:travelId'
+      element={<TripView />}
+    />
 
-    <Route path="/herramientas/agencia/conductores" element={<ConductoresAgencia />} />
-
+    <Route
+      path='/herramientas/agencia/conductores'
+      element={<ConductoresAgencia />}
+    />
 
     {/* Food / Restaurantes */}
-    <Route path="/food" element={<RestaurantesRoute />} />
-    <Route path="/comida" element={<Food />} />
-    <Route path="/restaurantes" element={<RestaurantesRoute />} />
+    <Route
+      path='/food'
+      element={<RestaurantesRoute />}
+    />
+    <Route
+      path='/comida'
+      element={<Food />}
+    />
+    <Route
+      path='/restaurantes'
+      element={<RestaurantesRoute />}
+    />
 
     {/* Market / Marketplace / MarketRoute */}
-    <Route path="/market" element={<MarketPlace />} />
-    <Route path="/marketplaces" element={<MarketPlace />} />
-    <Route path="/market/producto/:slug" element={<Producto />} />
-    <Route path="/market/store/:slug" element={<Tienda />}>
-      <Route path="agregar-producto" element={<AgregarProducto />} />
-      <Route path="pedidos" element={<MisProductos />} />
-      <Route path="entregados" element={<PedidosEntregados />} />
-      <Route path="productos" element={<AgregarProducto />} />
-      <Route path="preguntas-producto" element={<MisProductos />} />
-      <Route path="pagos" element={<PagosTienda />} />
-      <Route path="configuracion" element={<ConfiguracionTienda />} />
+    <Route
+      path='/market'
+      element={<MarketPlace />}
+    />
+    <Route
+      path='/marketplaces'
+      element={<MarketPlace />}
+    />
+    <Route
+      path='/market/producto/:slug'
+      element={<Producto />}
+    />
+    <Route
+      path='/market/store/:slug'
+      element={<Tienda />}
+    >
+      <Route
+        path='agregar-producto'
+        element={<AgregarProducto />}
+      />
+      <Route
+        path='pedidos'
+        element={<MisProductos />}
+      />
+      <Route
+        path='entregados'
+        element={<PedidosEntregados />}
+      />
+      <Route
+        path='productos'
+        element={<AgregarProducto />}
+      />
+      <Route
+        path='preguntas-producto'
+        element={<MisProductos />}
+      />
+      <Route
+        path='pagos'
+        element={<PagosTienda />}
+      />
+      <Route
+        path='configuracion'
+        element={<ConfiguracionTienda />}
+      />
     </Route>
-    <Route path="/registro-vendedor" element={<RegistroTienda />} />
-    <Route path="/agregar-producto" element={<AgregarProducto />} />
-    <Route path="/carrito" element={<Carrito />} />
-    <Route path="/carrito/finalizar" element={<FinalizarCompra />} />
-    <Route path="/market/compras/*" element={<Compras />} />
-    <Route path="/productos/*" element={<ProductosPage />} />
-    <Route path="/productos/eliminar/:slug" element={<EliminarProductoWrapper />} />
-    <Route path="/productos/eliminar/:slug" element={<EliminarProductoWrapper />} />
+    <Route
+      path='/registro-vendedor'
+      element={<RegistroTienda />}
+    />
+    <Route
+      path='/agregar-producto'
+      element={<AgregarProducto />}
+    />
+    <Route
+      path='/carrito'
+      element={<Carrito />}
+    />
+    <Route
+      path='/carrito/finalizar'
+      element={<FinalizarCompra />}
+    />
+    <Route
+      path='/market/compras/*'
+      element={<Compras />}
+    />
+    <Route
+      path='/productos/*'
+      element={<ProductosPage />}
+    />
+    <Route
+      path='/productos/eliminar/:slug'
+      element={<EliminarProductoWrapper />}
+    />
+    <Route
+      path='/productos/eliminar/:slug'
+      element={<EliminarProductoWrapper />}
+    />
 
     {/* Cartera / OpWallet */}
-    <Route path="/cartera/itokens" element={<ITokens />} />
-    <Route path="/cartera/FreeBoocks" element={<Catalogo />} />
-    <Route path="/cartera/:moneda" element={<OpWalletRoute />} />
-    <Route path="/cartera" element={<OpWalletRoute />} />
-    <Route path="/comprar-tokens" element={<OpWalletRoute />} />
-    
-    
-    
-    
-    <Route path="/taxis/preregistrar" element={<PreRegistroConductor2 />} />
+    <Route
+      path='/cartera/itokens'
+      element={<ITokens />}
+    />
+    <Route
+      path='/cartera/FreeBoocks'
+      element={<Catalogo />}
+    />
+    <Route
+      path='/cartera/:moneda'
+      element={<OpWalletRoute />}
+    />
+    <Route
+      path='/cartera'
+      element={<OpWalletRoute />}
+    />
+    <Route
+      path='/comprar-tokens'
+      element={<OpWalletRoute />}
+    />
+
+    <Route
+      path='/taxis/preregistrar'
+      element={<PreRegistroConductor2 />}
+    />
 
     {/* Academia / Coowork */}
-    <Route path="/academia" element={<Rompecabezas />} />
-    <Route path="/academias" element={<Academia />} />
-    <Route path="/academia/taxis" element={<Academia />} />
-    <Route path="/coowork" element={<Coowork />} />
-    <Route path="/herramientas/mi-agencia" element={<Agencia />} />
-    <Route path="/herramientas/agregar-tarea" element={<AgregarTarea />} />
+    <Route
+      path='/academia'
+      element={<Rompecabezas />}
+    />
+    <Route
+      path='/academias'
+      element={<Academia />}
+    />
+    <Route
+      path='/academia/taxis'
+      element={<Academia />}
+    />
+    <Route
+      path='/coowork'
+      element={<Coowork />}
+    />
+    <Route
+      path='/herramientas/mi-agencia'
+      element={<Agencia />}
+    />
+    <Route
+      path='/herramientas/agregar-tarea'
+      element={<AgregarTarea />}
+    />
 
     {/* Perfil / Usuario */}
-    <Route path="/perfil/:username" element={<Perfil />} />
-    <Route path="/favoritos" element={<Favoritos />} />
-    <Route path="/favoritos/*" element={<Favoritos />} />
-    <Route path="/miqr" element={<UsuarioPage />} />
+    <Route
+      path='/perfil/:username'
+      element={<Perfil />}
+    />
+    <Route
+      path='/favoritos'
+      element={<Favoritos />}
+    />
+    <Route
+      path='/favoritos/*'
+      element={<Favoritos />}
+    />
+    <Route
+      path='/miqr'
+      element={<UsuarioPage />}
+    />
 
     {/* Ubicación */}
-    <Route path="/ubicacion" element={<MiUbicacion />} />
+    <Route
+      path='/ubicacion'
+      element={<MiUbicacion />}
+    />
 
     {/* Info / Wiki / Help */}
-    <Route path="/wiki" element={<WikiHome />} />
-    <Route path="/wiki/:slug" element={<WikiWrapper />} />
-    <Route path="/quienes-somos" element={<WikiWrapper />} />
-    <Route path="/ayuda" element={<WikiWrapper />} />
-    <Route path="/documentacion-transparencia" element={<WikiWrapper />} />
-    <Route path="/info/quienes" element={<QuienesSomos />} />
-    <Route path="/info/faq" element={<PreguntasFrecuentes />} />
-    <Route path="/preguntas-frecuentes" element={<PreguntasFrecuentes />} />
-    <Route path="/ayuda" element={<WikiWrapper />} />
+    <Route
+      path='/wiki'
+      element={<WikiHome />}
+    />
+    <Route
+      path='/wiki/:slug'
+      element={<WikiWrapper />}
+    />
+    <Route
+      path='/quienes-somos'
+      element={<WikiWrapper />}
+    />
+    <Route
+      path='/ayuda'
+      element={<WikiWrapper />}
+    />
+    <Route
+      path='/documentacion-transparencia'
+      element={<WikiWrapper />}
+    />
+    <Route
+      path='/info/quienes'
+      element={<QuienesSomos />}
+    />
+    <Route
+      path='/info/faq'
+      element={<PreguntasFrecuentes />}
+    />
+    <Route
+      path='/preguntas-frecuentes'
+      element={<PreguntasFrecuentes />}
+    />
+    <Route
+      path='/ayuda'
+      element={<WikiWrapper />}
+    />
 
     {/* Eventos */}
-    <Route path="/evento/:slug" element={<Evento />} />
-    <Route path="/eventos/crear-evento" element={<CrearEvento />} />
-    <Route path="/eventos" element={<EventosPage />} />
+    <Route
+      path='/evento/:slug'
+      element={<Evento />}
+    />
+    <Route
+      path='/eventos/crear-evento'
+      element={<CrearEvento />}
+    />
+    <Route
+      path='/eventos'
+      element={<EventosPage />}
+    />
 
     {/* Clubs / Bitácoras */}
-    
-      
 
     {/* Contenidos / Cursos */}
-    <Route path="/contenidos/agregar-contenido" element={<AgregarContenido />} />
-    <Route path="/cursos/agregar-curso" element={<AgregarCurso />} />
-    <Route path="/cursos/editar/:slug" element={<EditarCursoWrapper />} />
-    <Route path="/cursos/eliminar/:slug" element={<EliminarCursoWrapper />} />
-    <Route path="/cursos/*" element={<CursosPage />} />
-    <Route path="/curso/:slug/*" element={<Curso />} />
-    <Route path="/contenidos/editar/:slug" element={<EditarContenidoWrapper />} />
-    <Route path="/contenidos/eliminar/:slug" element={<EliminarContenidoWrapper />} />
-    <Route path="/contenidos/*" element={<ContenidosPage />} />
-    <Route path="/contenido/:slug" element={<Contenido />} />
+    <Route
+      path='/contenidos/agregar-contenido'
+      element={<AgregarContenido />}
+    />
+    <Route
+      path='/cursos/agregar-curso'
+      element={<AgregarCurso />}
+    />
+    <Route
+      path='/cursos/editar/:slug'
+      element={<EditarCursoWrapper />}
+    />
+    <Route
+      path='/cursos/eliminar/:slug'
+      element={<EliminarCursoWrapper />}
+    />
+    <Route
+      path='/cursos/*'
+      element={<CursosPage />}
+    />
+    <Route
+      path='/curso/:slug/*'
+      element={<Curso />}
+    />
+    <Route
+      path='/contenidos/editar/:slug'
+      element={<EditarContenidoWrapper />}
+    />
+    <Route
+      path='/contenidos/eliminar/:slug'
+      element={<EliminarContenidoWrapper />}
+    />
+    <Route
+      path='/contenidos/*'
+      element={<ContenidosPage />}
+    />
+    <Route
+      path='/contenido/:slug'
+      element={<Contenido />}
+    />
 
     {/* Membresías */}
-    <Route path="/membresias" element={<Membresias />} />
-    
-    
-    <Route path="/membresias/pagar/*" element={<ProbarMembresia />} />
-    <Route path="/membresias/pago/plan/:planId" element={<ProbarMembresia />} />
-    <Route path="/membresias/adquirir/*" element={<MembershipCheckout />} />
-    <Route path="/mi-membresia" element={<MiMembresia />} />
-    <Route path="/activatumembresia" element={<ActivaTuMembresia />} />
-    
+    <Route
+      path='/membresias'
+      element={<Membresias />}
+    />
 
+    <Route
+      path='/membresias/pagar/*'
+      element={<ProbarMembresia />}
+    />
+    <Route
+      path='/membresias/pago/plan/:planId'
+      element={<ProbarMembresia />}
+    />
+    <Route
+      path='/membresias/adquirir/*'
+      element={<MembershipCheckout />}
+    />
+    <Route
+      path='/mi-membresia'
+      element={<MiMembresia />}
+    />
+    <Route
+      path='/activatumembresia'
+      element={<ActivaTuMembresia />}
+    />
 
     {/* Comunidad */}
-    <Route path="/comunidad" element={<ComunidadRoute />} />
-    <Route path="/comunidad/nuevo-anuncio-programado" element={<Anuncios />} />
-    <Route path="/comunidad/mis-anuncios" element={<Anuncios />} />
-    <Route path="/comunidad/mis-anuncios/:slug" element={<Anuncios />}>
-      <Route path="programados" element={<Anuncios />} />
-      <Route path="historial" element={<Anuncios />} />
-      <Route path="configuracion" element={<Anuncios />} />
+    <Route
+      path='/comunidad'
+      element={<ComunidadRoute />}
+    />
+    <Route
+      path='/comunidad/nuevo-anuncio-programado'
+      element={<Anuncios />}
+    />
+    <Route
+      path='/comunidad/mis-anuncios'
+      element={<Anuncios />}
+    />
+    <Route
+      path='/comunidad/mis-anuncios/:slug'
+      element={<Anuncios />}
+    >
+      <Route
+        path='programados'
+        element={<Anuncios />}
+      />
+      <Route
+        path='historial'
+        element={<Anuncios />}
+      />
+      <Route
+        path='configuracion'
+        element={<Anuncios />}
+      />
     </Route>
-    <Route path="/referir" element={<Referir />} />
-    <Route path="/referir/*" element={<Referir />} />
-    <Route path="/agregar-club/:club" element={<Referir />} />
+    <Route
+      path='/referir'
+      element={<Referir />}
+    />
+    <Route
+      path='/referir/*'
+      element={<Referir />}
+    />
+    <Route
+      path='/agregar-club/:club'
+      element={<Referir />}
+    />
 
-    
     {/* Misc / Tests */}
-    <Route path="/notificationtester" element={<NotificationTester />} />
-    <Route path="/precargador" element={<PreCargador />} />
-    <Route path="/prueba" element={<Prueba />} />
+    <Route
+      path='/notificationtester'
+      element={<NotificationTester />}
+    />
+    <Route
+      path='/precargador'
+      element={<PreCargador />}
+    />
+    <Route
+      path='/prueba'
+      element={<Prueba />}
+    />
 
     {/* Stripe success */}
-    <Route path="/stripe-success/:slug" element={<StripeSuccessRedirect />} />
+    <Route
+      path='/stripe-success/:slug'
+      element={<StripeSuccessRedirect />}
+    />
 
     {/* Fallbacks / aliases */}
-    <Route path="/marketplaces" element={<MarketPlace />} />
-    <Route path="/market" element={<MarketPlace />} />
+    <Route
+      path='/marketplaces'
+      element={<MarketPlace />}
+    />
+    <Route
+      path='/market'
+      element={<MarketPlace />}
+    />
 
-    <Route path="/testoken" element={<TestToken />} />
+    <Route
+      path='/testoken'
+      element={<TestToken />}
+    />
   </Routes>
 );
 
