@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { ReactComponent as BotonMovil } from '../../assets/boton-robot.svg';
+import React, { useEffect, useRef } from "react";
+import { ReactComponent as BotonMovil } from "../../assets/boton-robot.svg";
 import io from "socket.io-client";
 
 function BotonCircular({ clase, mediaQ, onClick, searchText }) {
@@ -10,7 +10,7 @@ function BotonCircular({ clase, mediaQ, onClick, searchText }) {
     console.log("Intentando conectar al socket...");
 
     // Conectar al socket en el servidor de localhost
-    socketRef.current = io("http://localhost:3033");  // Ajusta la URL según tu servidor
+    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || "http://localhost:3033"); // Ajusta la URL según tu servidor
 
     // Si la conexión es exitosa
     socketRef.current.on("connect", () => {
@@ -43,7 +43,7 @@ function BotonCircular({ clase, mediaQ, onClick, searchText }) {
     // Verificamos si el socket está conectado antes de enviar el texto
     if (socketRef.current && socketRef.current.connected) {
       console.log("ANTES de enviar el texto, se va a enviar:", searchText);
-      
+
       // Enviar el texto al socket
       socketRef.current.emit("speakTTS", searchText);
 
@@ -53,7 +53,7 @@ function BotonCircular({ clase, mediaQ, onClick, searchText }) {
     }
 
     // Llamamos a onClick si es que existe
-    if (onClick) onClick(e);  
+    if (onClick) onClick(e);
   };
 
   // Mostrar el botón según el media query
