@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useLocation } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -8,6 +9,10 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid2 as Grid,
   Paper,
   Stack,
@@ -180,7 +185,8 @@ const FormPreRegisterForSteps = () => {
 
   console.log('methods', methods.getValues());
   const stepRules = useMemo(() => buildStepRules(), []);
-  const { user: auth0User } = useAuth0();
+  const { user: auth0User, isAuthenticated, isLoading: authLoading, loginWithRedirect } = useAuth0();
+  const location = useLocation();
   const { userData } = useRoles();
 
   const [bootLoading, setBootLoading] = useState(true);
@@ -192,6 +198,7 @@ const FormPreRegisterForSteps = () => {
   const [successAgenda, setSuccessAgenda] = useState(null);
   const [agencies, setAgencies] = useState([]);
   const [identity, setIdentity] = useState({ email: '', userId: null });
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
 
   const wizard = usePreregistroWizard({ needsAccount });
   const persistence = useDraftPersistence();
@@ -206,6 +213,7 @@ const FormPreRegisterForSteps = () => {
 
       const local = persistence.readLocalDraft();
       const localValues = local?.values;
+      const localStep = local?.currentStep;
       const rawEmail = userData?.email || auth0User?.email || '';
 
       try {
@@ -269,13 +277,18 @@ const FormPreRegisterForSteps = () => {
             draft.current_step !== 'cuenta'
               ? draft.current_step
               : 'bienvenida';
+          const canResumeLocalStep = Boolean(localStep && wizard.stepOrder.includes(localStep));
+          const initialStep =
+            canResumeLocalStep && (createdDraft || backendStep === 'bienvenida')
+              ? localStep
+              : backendStep;
           // Nota temporal: rehabilitar el forzado a "verificacion" cuando backend exponga y persista
           // el campo phone_verified de forma confiable. Por ahora se respeta el current_step.
           // const forceVerification =
           //   !backendValues.phoneVerified &&
           //   ["personales", "documentos", "licencia", "vehiculo", "fotos", "cita", "resumen"].includes(backendStep);
           wizard.setCurrentStepId(
-            agenda?.id && !allowExistingAgendaFlow ? 'bienvenida' : backendStep
+            agenda?.id && !allowExistingAgendaFlow ? 'bienvenida' : initialStep
           );
         } else {
           methods.reset({
@@ -311,6 +324,21 @@ const FormPreRegisterForSteps = () => {
     };
   }, [auth0User?.email, userData?.email, allowExistingAgendaFlow]);
 
+  const handleLoginRedirect = async () => {
+    const currentStepId = wizard.currentStepId;
+    const nextStepId = wizard.stepOrder[wizard.currentIndex + 1] || currentStepId;
+    const values = methods.getValues();
+    persistence.saveSnapshot({
+      driverId: driverDraft?.id || null,
+      currentStep: nextStepId,
+      values,
+    });
+    setLoginPromptOpen(false);
+    await loginWithRedirect({
+      appState: { returnTo: location.pathname + location.search },
+    });
+  };
+
   const saveCurrentStep = async () => {
     setScreenError('');
     setGlobalSuccess('');
@@ -327,6 +355,11 @@ const FormPreRegisterForSteps = () => {
     }
 
     if (currentStepId === 'bienvenida') {
+      if (authLoading) return;
+      if (!isAuthenticated) {
+        setLoginPromptOpen(true);
+        return;
+      }
       wizard.goNext();
       return;
     }
@@ -623,6 +656,28 @@ const FormPreRegisterForSteps = () => {
           />
         </Paper>
       </Stack>
+      <Dialog open={loginPromptOpen} onClose={() => setLoginPromptOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Inicia sesion para continuar</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: '#475569' }}>
+            Identificamos que no has iniciado sesión. Primero debes hacerlo para continuar con este
+            proceso.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setLoginPromptOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleLoginRedirect}
+            disabled={authLoading}
+            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#1bb358' }}
+          >
+            Iniciar sesion
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
