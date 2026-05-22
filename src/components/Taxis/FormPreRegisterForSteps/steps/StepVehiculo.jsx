@@ -88,13 +88,6 @@ const StepVehiculo = ({ rules }) => {
         />
       </Grid>
       <Grid size={{ xs: 12, md: 4 }}>
-        {/* <TextField
-          fullWidth
-          label="Tipo de vehiculo"
-          {...register("tipo_vehiculo", rules.tipo_vehiculo)}
-          error={Boolean(errors.tipo_vehiculo)}
-          helperText={errors.tipo_vehiculo?.message || " "}
-        />  */}
         <TextField
           fullWidth
           select
