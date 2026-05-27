@@ -46,6 +46,7 @@ import {
 import {
   createDriverAgenda,
   createDriverDraft,
+  createValidationFromAgenda,
   fetchAgencies,
   getLatestDriverAgendaByUser,
   getDriverDraftByUser,
@@ -419,6 +420,14 @@ const FormPreRegisterForSteps = () => {
           throw new Error('Selecciona una fecha y hora valida para la cita.');
         }
         const createdAgenda = await createDriverAgenda(agendaPayload);
+
+        await createValidationFromAgenda({
+          driverId: updated.id,
+          agendaId: createdAgenda.id,
+          agencyId: values.sede || null,
+          userId: identity.userId,
+          appointmentDate: agendaPayload.fecha_inicio,
+        });
 
         await updateDriverDraft(updated.id, buildFinalDriverPayload(values));
         persistence.clearLocalDraft();

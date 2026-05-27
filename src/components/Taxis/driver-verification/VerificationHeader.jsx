@@ -19,6 +19,11 @@ const STATUS_MAP = {
   suspended: { color: 'warning', label: 'Suspendido' },
   blocked: { color: 'error', label: 'Bloqueado' },
   pending: { color: 'warning', label: 'Pendiente' },
+  active: { color: 'info', label: 'Activa' },
+  under_review: { color: 'info', label: 'En revisión' },
+  completed: { color: 'success', label: 'Completada' },
+  expired: { color: 'default', label: 'Expirada' },
+  cancelled: { color: 'default', label: 'Cancelada' },
 };
 
 const formatAppointmentDate = (value) => {
@@ -26,10 +31,12 @@ const formatAppointmentDate = (value) => {
   return dayjs(value).format('D MMM YYYY, h:mm a');
 };
 
-const VerificationHeader = ({ driver }) => {
+const VerificationHeader = ({ driver, validation }) => {
   if (!driver) return null;
 
-  const statusConfig = STATUS_MAP[driver?.status] || STATUS_MAP.pending;
+  const statusKey = validation?.status || driver?.status;
+  const statusConfig = STATUS_MAP[statusKey] || STATUS_MAP.pending;
+  const appointmentDate = validation?.appointmentDate || driver?.appointmentDate;
   const progressValue =
     ((driver?.docsProgress?.completed || 0) / (driver?.docsProgress?.total || 1)) * 100;
 
@@ -45,7 +52,7 @@ const VerificationHeader = ({ driver }) => {
               {driver?.name}
             </Typography>
             <Typography variant="body2" color="text.secondary" noWrap>
-              {driver?.id} • {formatAppointmentDate(driver?.appointmentDate)} • {driver?.branch}
+              {driver?.id} • {formatAppointmentDate(appointmentDate)} • {driver?.branch}
             </Typography>
           </Box>
           <Chip color={statusConfig.color} label={statusConfig.label} size="small" />
@@ -96,6 +103,12 @@ VerificationHeader.propTypes = {
       total: PropTypes.number,
     }),
   }).isRequired,
+  validation: PropTypes.shape({
+    id: PropTypes.string,
+    status: PropTypes.string,
+    statusLabel: PropTypes.string,
+    appointmentDate: PropTypes.string,
+  }),
 };
 
 export default VerificationHeader;

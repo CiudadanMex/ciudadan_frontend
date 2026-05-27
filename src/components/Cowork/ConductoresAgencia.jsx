@@ -3,6 +3,7 @@ import { Box, Typography, Paper, CircularProgress, Grid2 as Grid, Button } from 
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import { resolveValidationByAgendaId } from '../../services/driverVerification/gettters';
 
 const neonGreen = '#00ff99';
 const darkGray = '#1a1a1a';
@@ -24,9 +25,16 @@ const RowCard = styled(Paper)(({ theme }) => ({
   },
 }));
 
+const getValidationIdFromAgenda = (item) => {
+  const metadata = item?.attributes?.metadata || item?.metadata || {};
+  const preregistro = metadata.preregistro_conductor || {};
+  return metadata.validation_id || preregistro.validation_id || null;
+};
+
 const ConductoresAgencia = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [resolvingId, setResolvingId] = useState(null);
   const navigate = useNavigate();
 
   const STRAPI_URL = process.env.REACT_APP_STRAPI_URL;
@@ -56,8 +64,27 @@ const ConductoresAgencia = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const goToVerification = (driverId) => {
-    navigate(`/drivers/${driverId}/verification`);
+  const goToVerification = async (item) => {
+    setResolvingId(item.id);
+    try {
+      let validationId = getValidationIdFromAgenda(item);
+
+      if (!validationId) {
+        const resolved = await resolveValidationByAgendaId(item.id);
+        validationId = resolved?.id;
+      }
+
+      if (!validationId) {
+        throw new Error('No se encontró una validación asociada a esta cita.');
+      }
+
+      navigate(`/validations/${validationId}/review`);
+    } catch (error) {
+      console.error('Error resolviendo validación:', error);
+      window.alert(error?.message || 'No se pudo abrir la validación.');
+    } finally {
+      setResolvingId(null);
+    }
   };
 
   if (loading) {
@@ -104,10 +131,10 @@ const ConductoresAgencia = () => {
                   <Button
                     size="small"
                     variant="outlined"
+                    disabled={resolvingId === item.id}
                     onClick={(event) => {
                       event.stopPropagation();
-                      const driverId = item.attributes.metadata.preregistro_conductor.driver_id;
-                      goToVerification(driverId);
+                      goToVerification(item);
                     }}
                     sx={{
                       color: neonGreen,
@@ -119,7 +146,7 @@ const ConductoresAgencia = () => {
                       },
                     }}
                   >
-                    Verificar
+                    {resolvingId === item.id ? 'Abriendo...' : 'Verificar'}
                   </Button>
                 </Box>
               </RowCard>

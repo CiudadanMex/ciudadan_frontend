@@ -182,7 +182,7 @@ const Rutas = () => (
     <Route path="/taxis/viaje/:travelId" element={<TripView />} />
 
     <Route path="/herramientas/agencia/conductores" element={<ConductoresAgencia />} />
-    <Route path="/drivers/:driverId/verification" element={<DriverVerificationPage />} />
+    <Route path="/validations/:validationId/review" element={<DriverVerificationPage />} />
 
     {/* Food / Restaurantes */}
     <Route path="/food" element={<RestaurantesRoute />} />

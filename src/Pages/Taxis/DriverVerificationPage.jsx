@@ -10,15 +10,15 @@ import {
   VerificationHeader,
   VerificationSidebar,
 } from '../../components/Taxis/driver-verification';
-import { getDriverDetails } from '../../services/driverVerification/gettters';
-import { mapDriverDetailsToViewModel } from '../../services/driverVerification/mappers';
+import { getValidationReviewBundle } from '../../services/driverVerification/gettters';
+import { mapValidationToReviewViewModel } from '../../services/driverVerification/validationMappers';
 
 const DriverVerificationPage = () => {
-  const { driverId } = useParams();
+  const { validationId } = useParams();
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [driverDetails, setDriverDetails] = useState(null);
+  const [validationDetails, setValidationDetails] = useState(null);
   const [activeSection, setActiveSection] = useState('personal');
   const [documents, setDocuments] = useState([]);
   const [observations, setObservations] = useState('');
@@ -28,8 +28,8 @@ const DriverVerificationPage = () => {
     let mounted = true;
 
     const loadDetails = async () => {
-      if (!driverId) {
-        setError('No se proporcionó un ID de conductor.');
+      if (!validationId) {
+        setError('No se proporcionó un ID de validación.');
         setLoading(false);
         return;
       }
@@ -37,12 +37,12 @@ const DriverVerificationPage = () => {
       setLoading(true);
       setError('');
       try {
-        const data = await getDriverDetails(driverId);
+        const data = await getValidationReviewBundle(validationId);
         if (!mounted) return;
-        setDriverDetails(data);
+        setValidationDetails(data);
       } catch (fetchError) {
         if (!mounted) return;
-        setError(fetchError?.message || 'No se pudo cargar la información del conductor.');
+        setError(fetchError?.message || 'No se pudo cargar la validación del conductor.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -52,9 +52,12 @@ const DriverVerificationPage = () => {
     return () => {
       mounted = false;
     };
-  }, [driverId, reloadKey]);
+  }, [validationId, reloadKey]);
 
-  const viewModel = useMemo(() => mapDriverDetailsToViewModel(driverDetails), [driverDetails]);
+  const viewModel = useMemo(
+    () => mapValidationToReviewViewModel(validationDetails),
+    [validationDetails]
+  );
 
   useEffect(() => {
     if (!viewModel) return;
@@ -82,7 +85,7 @@ const DriverVerificationPage = () => {
         <Stack spacing={2} alignItems="center">
           <CircularProgress />
           <Typography variant="body2" color="text.secondary">
-            Cargando expediente del conductor...
+            Cargando expediente de validación...
           </Typography>
         </Stack>
       </Box>
@@ -109,7 +112,7 @@ const DriverVerificationPage = () => {
   if (!viewModel) {
     return (
       <Box sx={{ p: { xs: 1.5, md: 2 } }}>
-        <Alert severity="info">No hay información disponible para este conductor.</Alert>
+        <Alert severity="info">No hay información disponible para esta validación.</Alert>
       </Box>
     );
   }
@@ -132,7 +135,7 @@ const DriverVerificationPage = () => {
         }}
       >
         <Box sx={{ gridArea: 'header' }}>
-          <VerificationHeader driver={viewModel.driver} />
+          <VerificationHeader driver={viewModel.driver} validation={viewModel.validation} />
         </Box>
 
         <Box sx={{ gridArea: 'left', minWidth: 0 }}>

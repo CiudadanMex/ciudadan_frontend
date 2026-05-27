@@ -13,3 +13,28 @@ export const getDriverDetails = async (id) => {
 
   return normalizeEntity(data?.data);
 };
+
+export const getValidationReviewBundle = async (validationId) => {
+  const url = `${STRAPI_URL}/api/cars-validations/${validationId}/review-bundle`;
+  const res = await fetch(url, { credentials: 'include' });
+  const data = await parseJsonSafe(res);
+
+  if (!res.ok) {
+    throw new Error(data?.error?.message || 'No se pudo cargar la validación.');
+  }
+
+  return normalizeEntity(data?.data);
+};
+
+export const resolveValidationByAgendaId = async (agendaId) => {
+  const url = `${STRAPI_URL}/api/cars-validations/resolve?agendaId=${encodeURIComponent(agendaId)}`;
+  const res = await fetch(url, { credentials: 'include' });
+  const data = await parseJsonSafe(res);
+
+  if (!res.ok) {
+    throw new Error(data?.error?.message || 'No se pudo resolver la validación de esta agenda.');
+  }
+
+  const validation = data?.data?.validation || data?.data;
+  return normalizeEntity(validation);
+};
