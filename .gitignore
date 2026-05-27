@@ -24,3 +24,7 @@ ciudadan-app.rar
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Cursor and Agents
+.cursor
+.agents

@@ -108,7 +108,7 @@ const buildUserProfilePayload = (values) => {
   };
 };
 
-const buildAgendaPayload = (values, userId, agencies = []) => {
+const buildAgendaPayload = (values, userId, agencies = [], driverId = null) => {
   const appointmentDate = values.fecha ? new Date(values.fecha) : null;
   const isDateValid = appointmentDate && !Number.isNaN(appointmentDate.getTime());
   const selectedAgency = agencies.find((agency) => String(agency.id) === String(values.sede || ''));
@@ -151,6 +151,7 @@ const buildAgendaPayload = (values, userId, agencies = []) => {
         sede_id: values.sede || null,
         sede_nombre: selectedAgency?.nombre || null,
         revisado_en: new Date().toISOString(),
+        driver_id: driverId || null,
       },
     },
   };
@@ -164,8 +165,7 @@ const isMediaFieldValue = (value) => {
   if (typeof File !== 'undefined' && value instanceof File) return true;
   if (Array.isArray(value)) {
     return value.some(
-      (item) =>
-        (typeof File !== 'undefined' && item instanceof File) || hasMediaReference(item)
+      (item) => (typeof File !== 'undefined' && item instanceof File) || hasMediaReference(item)
     );
   }
   return hasMediaReference(value);
@@ -388,7 +388,9 @@ const FormPreRegisterForSteps = () => {
         throw new Error('No se encontro un borrador de preregistro para guardar.');
 
       const uploadFields = fields.filter((fieldName) => isMediaFieldValue(values[fieldName]));
-      const mediaIds = uploadFields.length ? await uploads.uploadStepFiles(uploadFields, values) : {};
+      const mediaIds = uploadFields.length
+        ? await uploads.uploadStepFiles(uploadFields, values)
+        : {};
       const stepPayload = toDriverPayloadByStep(currentStepId, values, mediaIds);
       const updated = await updateDriverDraft(currentDraft.id, stepPayload);
       setDriverDraft(updated);
@@ -412,7 +414,7 @@ const FormPreRegisterForSteps = () => {
         const userPayload = buildUserProfilePayload(values);
         await updateStrapiUserProfile(identity.userId, userPayload);
 
-        const agendaPayload = buildAgendaPayload(values, identity.userId, agencies);
+        const agendaPayload = buildAgendaPayload(values, identity.userId, agencies, updated.id);
         if (!agendaPayload.fecha_inicio) {
           throw new Error('Selecciona una fecha y hora valida para la cita.');
         }

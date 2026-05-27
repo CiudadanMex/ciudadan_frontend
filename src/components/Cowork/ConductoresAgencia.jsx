@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  CircularProgress,
-  Grid
-} from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Grid2 as Grid, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 
 const neonGreen = '#00ff99';
@@ -32,6 +27,7 @@ const RowCard = styled(Paper)(({ theme }) => ({
 const ConductoresAgencia = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const STRAPI_URL = process.env.REACT_APP_STRAPI_URL;
 
@@ -60,6 +56,10 @@ const ConductoresAgencia = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
+  const goToVerification = (driverId) => {
+    navigate(`/drivers/${driverId}/verification`);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -70,10 +70,7 @@ const ConductoresAgencia = () => {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Typography
-        variant="h6"
-        sx={{ mb: 2, color: 'white', fontWeight: 600 }}
-      >
+      <Typography variant="h6" sx={{ mb: 2, color: 'white', fontWeight: 600 }}>
         Conductores pendientes
       </Typography>
 
@@ -82,33 +79,49 @@ const ConductoresAgencia = () => {
           const a = item.attributes;
 
           return (
-            <Grid item xs={12} key={item.id}>
+            <Grid size={12} key={item.id}>
               <RowCard onClick={() => goToDetalle(item.id)}>
                 <DirectionsCarIcon sx={{ color: neonGreen }} />
 
                 <Box sx={{ flexGrow: 1 }}>
-                  <Typography fontWeight={600}>
-                    {a.titulo || 'Sin título'}
-                  </Typography>
+                  <Typography fontWeight={600}>{a.titulo || 'Sin título'}</Typography>
 
                   <Typography variant="body2" sx={{ opacity: 0.7 }}>
                     {a.ciudad} {a.estado ? `• ${a.estado}` : ''}
                   </Typography>
 
-                  <Typography
-                    variant="body2"
-                    sx={{ mt: 0.5, opacity: 0.6 }}
-                  >
+                  <Typography variant="body2" sx={{ mt: 0.5, opacity: 0.6 }}>
                     {a.descripcion}
                   </Typography>
                 </Box>
 
-                <Typography
-                  variant="caption"
-                  sx={{ color: neonGreen, fontWeight: 600 }}
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}
                 >
-                  Ver →
-                </Typography>
+                  <Typography variant="caption" sx={{ color: neonGreen, fontWeight: 600 }}>
+                    Ver →
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const driverId = item.attributes.metadata.preregistro_conductor.driver_id;
+                      goToVerification(driverId);
+                    }}
+                    sx={{
+                      color: neonGreen,
+                      borderColor: neonGreen,
+                      textTransform: 'none',
+                      '&:hover': {
+                        borderColor: neonGreen,
+                        bgcolor: 'rgba(0,255,153,0.08)',
+                      },
+                    }}
+                  >
+                    Verificar
+                  </Button>
+                </Box>
               </RowCard>
             </Grid>
           );
@@ -116,9 +129,7 @@ const ConductoresAgencia = () => {
       </Grid>
 
       {data.length === 0 && (
-        <Typography sx={{ mt: 3, opacity: 0.6 }}>
-          No hay conductores pendientes
-        </Typography>
+        <Typography sx={{ mt: 3, opacity: 0.6 }}>No hay conductores pendientes</Typography>
       )}
     </Box>
   );
