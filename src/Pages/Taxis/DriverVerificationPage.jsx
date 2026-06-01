@@ -177,6 +177,7 @@ const DriverVerificationPage = () => {
 
     try {
       setActionLoading(true);
+      //TODO: Add user id
       await completeValidation(validationId, { action, observations });
       await refreshReviewBundle();
       showFeedback(successMessages[action] || 'Acción completada.');

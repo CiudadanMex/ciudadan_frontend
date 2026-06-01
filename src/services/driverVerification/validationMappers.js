@@ -1,5 +1,8 @@
-import dayjs from 'dayjs';
 import { mapDriverDetailsToViewModel } from './mappers';
+import { computeEvidenceReviewMetrics } from './reviewProgress';
+import { buildReviewNavigationSections, computeReviewSectionScores } from './reviewNavigation';
+import { mapValidationEventsToTimeline } from './validationEventMappers';
+import { getAgendaEstadoLabel, normalizeAgendaEstado } from '../../constants/agendaEstado';
 
 const STRAPI_URL = process.env.REACT_APP_STRAPI_URL || '';
 
@@ -7,6 +10,11 @@ const VALIDATION_STATUS_META = {
   pending: { label: 'Pendiente', color: 'warning', sectionStatus: 'pending' },
   active: { label: 'Activa', color: 'info', sectionStatus: 'needs_review' },
   under_review: { label: 'En revisión', color: 'info', sectionStatus: 'needs_review' },
+  awaiting_resubmission: {
+    label: 'Esperando reenvío',
+    color: 'warning',
+    sectionStatus: 'resub_requested',
+  },
   completed: { label: 'Completada', color: 'success', sectionStatus: 'approved' },
   expired: { label: 'Expirada', color: 'default', sectionStatus: 'rejected' },
   cancelled: { label: 'Cancelada', color: 'default', sectionStatus: 'rejected' },
@@ -54,21 +62,6 @@ const EVIDENCE_CATEGORY = {
   video_360: 'vehicle',
 };
 
-const ACTION_LABELS = {
-  validation_created: 'Validación creada',
-  evidence_synced: 'Documentos sincronizados',
-  evidence_approved: 'Documento aprobado',
-  evidence_rejected: 'Documento rechazado',
-  evidence_resub_requested: 'Reenvío solicitado',
-  evidence_superseded: 'Documento reemplazado',
-  validation_started: 'Revisión iniciada',
-  validation_completed: 'Validación completada',
-  validation_cancelled: 'Validación cancelada',
-  driver_status_synced: 'Estado del conductor actualizado',
-  observations_updated: 'Observaciones actualizadas',
-  checklist_updated: 'Checklist actualizado',
-};
-
 const unwrap = (value) => {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) return value.map(unwrap).filter(Boolean);
@@ -90,13 +83,6 @@ const toAbsoluteUrl = (rawUrl) => {
   if (String(rawUrl).startsWith('http')) return rawUrl;
   const host = STRAPI_URL.replace(/\/$/, '');
   return `${host}${rawUrl}`;
-};
-
-const formatDateOrDash = (value) => {
-  if (!value) return '—';
-  const parsed = dayjs(value);
-  if (!parsed.isValid()) return '—';
-  return parsed.format('D MMM YYYY HH:mm');
 };
 
 const mapReviewStatusToUi = (reviewStatus) => {
@@ -131,20 +117,6 @@ const mapEvidenceToDocument = (evidence, index) => {
   };
 };
 
-const mapAuditEvents = (events = []) =>
-  unwrapList(events).map((event, index) => ({
-    id: event.id ?? `event-${index}`,
-    type: event.action?.includes('reject') ? 'error' : 'info',
-    text: ACTION_LABELS[event.action] || event.action || 'Evento',
-    time: formatDateOrDash(event.createdAt),
-    payload: event.payload || {},
-  }));
-
-const pct = (current, total) => {
-  if (!total) return 0;
-  return Math.round((current / total) * 100);
-};
-
 export const mapValidationToReviewViewModel = (validationEntity) => {
   if (!validationEntity) return null;
 
@@ -155,24 +127,7 @@ export const mapValidationToReviewViewModel = (validationEntity) => {
     (evidence) => evidence.is_current !== false
   );
   const documents = evidences.map((evidence, index) => mapEvidenceToDocument(evidence, index));
-
-  const approvedCount = documents.filter((doc) => doc.status === 'approved').length;
-
-  const identityDocs = documents.filter((doc) => doc.type === 'identity' || doc.type === 'license');
-  const vehicleDocs = documents.filter((doc) => doc.type === 'vehicle');
-
-  const score = {
-    identity: pct(
-      identityDocs.filter((doc) => doc.status === 'approved').length,
-      identityDocs.length || 1
-    ),
-    docs: pct(approvedCount, documents.length || 1),
-    vehicle: pct(
-      vehicleDocs.filter((doc) => doc.status === 'approved').length,
-      vehicleDocs.length || 1
-    ),
-  };
-  score.overall = Math.round((score.identity + score.docs + score.vehicle) / 3);
+  const reviewMetrics = computeEvidenceReviewMetrics(documents);
 
   const validationStatus = asString(validationEntity.status) || 'pending';
   const statusMeta = VALIDATION_STATUS_META[validationStatus] || VALIDATION_STATUS_META.pending;
@@ -184,23 +139,7 @@ export const mapValidationToReviewViewModel = (validationEntity) => {
   const selfieDoc = documents.find((doc) => doc.evidenceType === 'selfie_live');
   const ineDoc = documents.find((doc) => doc.evidenceType === 'id_front');
 
-  const events = mapAuditEvents(validationEntity.events);
-  if (!events.length) {
-    events.push(
-      {
-        id: 'validation-created',
-        type: 'info',
-        text: 'Validación creada',
-        time: formatDateOrDash(validationEntity.createdAt),
-      },
-      {
-        id: 'validation-status',
-        type: 'info',
-        text: `Estado: ${statusMeta.label}`,
-        time: formatDateOrDash(validationEntity.updatedAt),
-      }
-    );
-  }
+  const events = mapValidationEventsToTimeline(validationEntity.events);
 
   return {
     validation: {
@@ -213,18 +152,20 @@ export const mapValidationToReviewViewModel = (validationEntity) => {
       openedAt: validationEntity.opened_at || null,
       closedAt: validationEntity.closed_at || null,
     },
-    driver: driverViewModel?.driver || {
-      id: String(driverEntity?.id || ''),
-      name: 'Conductor sin nombre',
-      initials: '—',
-      status: driverEntity?.status || 'pending_review',
-      statusLabel: statusMeta.label,
-      appointmentDate: validationEntity.appointment_date || null,
-      branch: agency?.nombre || '—',
-      reviewer: reviewer?.username || 'Sin asignar',
+    driver: {
+      ...(driverViewModel?.driver || {
+        id: String(driverEntity?.id || ''),
+        name: 'Conductor sin nombre',
+        initials: '—',
+        status: driverEntity?.status || 'pending_review',
+        statusLabel: statusMeta.label,
+        appointmentDate: validationEntity.appointment_date || null,
+        branch: agency?.nombre || '—',
+        profileImageUrl: null,
+      }),
+      reviewer: reviewer?.username || driverViewModel?.driver?.reviewer || 'Sin asignar',
       assignedAt: validationEntity.updatedAt || validationEntity.createdAt || null,
-      docsProgress: { completed: approvedCount, total: documents.length },
-      profileImageUrl: null,
+      docsProgress: reviewMetrics.docsProgress,
     },
     vehicle: driverViewModel?.vehicle || {},
     documents,
@@ -233,10 +174,24 @@ export const mapValidationToReviewViewModel = (validationEntity) => {
       ineUrl: ineDoc?.imageUrl || null,
       similarityScore: null,
     },
-    sections: driverViewModel?.sections || [],
-    score,
+    sections: buildReviewNavigationSections({
+      documents,
+      driver: driverViewModel?.driver,
+    }),
+    score: computeReviewSectionScores(documents),
     observations: asString(validationEntity.observations),
     checklist: validationEntity.checklist || {},
+    agenda: agenda
+      ? {
+          id: String(agenda.id || ''),
+          estado: normalizeAgendaEstado(agenda.estado || agenda.status),
+          estadoLabel: getAgendaEstadoLabel(agenda.estado || agenda.status),
+          titulo: asString(agenda.titulo),
+          ciudad: asString(agenda.ciudad),
+          fechaInicio: agenda.fecha_inicio || null,
+          checked: Boolean(agenda.checked),
+        }
+      : null,
     events,
   };
 };
