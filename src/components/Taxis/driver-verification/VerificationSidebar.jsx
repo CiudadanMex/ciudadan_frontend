@@ -20,15 +20,46 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import BusinessIcon from '@mui/icons-material/Business';
+import FaceRetouchingNaturalIcon from '@mui/icons-material/FaceRetouchingNatural';
 
 const SECTIONS = [
   { id: 'account', label: 'Cuenta', icon: 'PersonOutline', status: 'approved', sub: 'Verificado' },
-  { id: 'personal', label: 'Datos personales', icon: 'BadgeOutlined', status: 'approved', sub: 'Aprobado' },
-  { id: 'identity', label: 'Identidad', icon: 'RecentActors', status: 'needs_review', sub: '2 pendientes' },
+  {
+    id: 'personal',
+    label: 'Datos personales',
+    icon: 'BadgeOutlined',
+    status: 'approved',
+    sub: 'Aprobado',
+  },
+  {
+    id: 'identity',
+    label: 'Identidad',
+    icon: 'RecentActors',
+    status: 'needs_review',
+    sub: '2 pendientes',
+  },
   { id: 'license', label: 'Licencia', icon: 'CreditCard', status: 'approved', sub: 'Aprobado' },
-  { id: 'vehicle', label: 'Vehículo', icon: 'DirectionsCar', status: 'pending', sub: 'En revisión' },
-  { id: 'photos', label: 'Fotos vehículo', icon: 'PhotoCamera', status: 'rejected', sub: '1 rechazada' },
-  { id: 'final', label: 'Validación final', icon: 'VerifiedUser', status: 'pending', sub: 'Pendiente' },
+  {
+    id: 'vehicle',
+    label: 'Vehículo',
+    icon: 'DirectionsCar',
+    status: 'pending',
+    sub: 'En revisión',
+  },
+  {
+    id: 'photos',
+    label: 'Fotos vehículo',
+    icon: 'PhotoCamera',
+    status: 'rejected',
+    sub: '1 rechazada',
+  },
+  {
+    id: 'final',
+    label: 'Validación final',
+    icon: 'VerifiedUser',
+    status: 'pending',
+    sub: 'Pendiente',
+  },
 ];
 
 const ICON_MAP = {
@@ -40,6 +71,7 @@ const ICON_MAP = {
   PhotoCamera: PhotoCameraIcon,
   VerifiedUser: VerifiedUserIcon,
   Business: BusinessIcon,
+  FaceRetouchingNatural: FaceRetouchingNaturalIcon,
 };
 
 const STATUS_COLORS = {
@@ -72,7 +104,15 @@ const VerificationSidebar = ({ sections = SECTIONS, activeSection, onSectionChan
               alignItems: 'flex-start',
             }}
           >
-            <Avatar sx={{ width: 28, height: 28, bgcolor: statusColor.bg, color: statusColor.fg, mr: 1.25 }}>
+            <Avatar
+              sx={{
+                width: 28,
+                height: 28,
+                bgcolor: statusColor.bg,
+                color: statusColor.fg,
+                mr: 1.25,
+              }}
+            >
               <Icon fontSize="small" />
             </Avatar>
 
@@ -84,7 +124,11 @@ const VerificationSidebar = ({ sections = SECTIONS, activeSection, onSectionChan
                 </Typography>
               }
               secondary={
-                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2, display: 'block', mt: 0.25 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.2, display: 'block', mt: 0.25 }}
+                >
                   {section.sub}
                 </Typography>
               }
@@ -93,35 +137,20 @@ const VerificationSidebar = ({ sections = SECTIONS, activeSection, onSectionChan
               size="small"
               variant="outlined"
               label={section.count ?? section.status.replace('_', ' ')}
-              sx={{ maxWidth: 92, '& .MuiChip-label': { px: 1, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' } }}
+              sx={{
+                maxWidth: 92,
+                '& .MuiChip-label': {
+                  px: 1,
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                },
+              }}
             />
           </ListItemButton>
         );
       })}
     </List>
-
-    <Paper variant="outlined" sx={{ p: 1.5, mt: 2 }}>
-      <Typography variant="caption" color="text.secondary">
-        Score operativo
-      </Typography>
-      <Typography variant="h4" sx={{ color: 'success.main', fontWeight: 700, lineHeight: 1.2 }}>
-        {score?.overall ?? 0}
-      </Typography>
-      <Stack spacing={1.2} sx={{ mt: 1 }}>
-        <Box>
-          <Typography variant="caption">Identidad</Typography>
-          <LinearProgress variant="determinate" value={score?.identity ?? 0} sx={{ mt: 0.5 }} />
-        </Box>
-        <Box>
-          <Typography variant="caption">Docs</Typography>
-          <LinearProgress variant="determinate" value={score?.docs ?? 0} sx={{ mt: 0.5 }} />
-        </Box>
-        <Box>
-          <Typography variant="caption">Vehículo</Typography>
-          <LinearProgress variant="determinate" value={score?.vehicle ?? 0} sx={{ mt: 0.5 }} />
-        </Box>
-      </Stack>
-    </Paper>
   </Paper>
 );
 

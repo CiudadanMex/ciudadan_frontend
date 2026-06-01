@@ -1,6 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Paper,
+  Snackbar,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ActivityTimeline,
   DocumentGrid,
@@ -11,48 +20,76 @@ import {
   VerificationSidebar,
 } from '../../components/Taxis/driver-verification';
 import { getValidationReviewBundle } from '../../services/driverVerification/gettters';
+import {
+  completeValidation,
+  updateEvidenceReview,
+  updateValidationObservations,
+} from '../../services/driverVerification/setters';
+import { computeEvidenceReviewMetrics } from '../../services/driverVerification/reviewProgress';
+import {
+  buildReviewNavigationSections,
+  computeReviewSectionScores,
+  DEFAULT_REVIEW_SECTION_ID,
+} from '../../services/driverVerification/reviewNavigation';
 import { mapValidationToReviewViewModel } from '../../services/driverVerification/validationMappers';
 
+const UI_TO_API_STATUS = {
+  approved: 'approved',
+  rejected: 'rejected',
+  resub_requested: 'resub_requested',
+  needs_review: 'needs_review',
+  pending: 'pending',
+};
+
 const DriverVerificationPage = () => {
+  const navigate = useNavigate();
   const { validationId } = useParams();
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [validationDetails, setValidationDetails] = useState(null);
-  const [activeSection, setActiveSection] = useState('personal');
+  const [activeSection, setActiveSection] = useState(DEFAULT_REVIEW_SECTION_ID);
   const [documents, setDocuments] = useState([]);
   const [observations, setObservations] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState({ open: false, message: '', severity: 'success' });
 
-  useEffect(() => {
-    let mounted = true;
+  const showFeedback = useCallback((message, severity = 'success') => {
+    setFeedback({ open: true, message, severity });
+  }, []);
 
-    const loadDetails = async () => {
-      if (!validationId) {
-        setError('No se proporcionó un ID de validación.');
-        setLoading(false);
-        return;
+  const refreshReviewBundle = useCallback(
+    async ({ showLoading = false } = {}) => {
+      if (!validationId) return;
+
+      if (showLoading) {
+        setLoading(true);
+        setError('');
       }
 
-      setLoading(true);
-      setError('');
       try {
         const data = await getValidationReviewBundle(validationId);
-        if (!mounted) return;
         setValidationDetails(data);
       } catch (fetchError) {
-        if (!mounted) return;
-        setError(fetchError?.message || 'No se pudo cargar la validación del conductor.');
+        if (showLoading) {
+          setError(fetchError?.message || 'No se pudo cargar la validación del conductor.');
+        } else {
+          setFeedback({
+            open: true,
+            message: fetchError?.message || 'No se pudo actualizar la actividad.',
+            severity: 'error',
+          });
+        }
       } finally {
-        if (mounted) setLoading(false);
+        if (showLoading) setLoading(false);
       }
-    };
+    },
+    [validationId]
+  );
 
-    loadDetails();
-    return () => {
-      mounted = false;
-    };
-  }, [validationId, reloadKey]);
+  useEffect(() => {
+    refreshReviewBundle({ showLoading: true });
+  }, [refreshReviewBundle, reloadKey]);
 
   const viewModel = useMemo(
     () => mapValidationToReviewViewModel(validationDetails),
@@ -65,19 +102,93 @@ const DriverVerificationPage = () => {
     setObservations(viewModel.observations || '');
   }, [viewModel]);
 
-  useEffect(() => {
-    if (!viewModel?.sections?.length) return;
-    if (viewModel.sections.some((section) => section.id === activeSection)) return;
-    setActiveSection(viewModel.sections[0].id);
-  }, [activeSection, viewModel]);
+  const navigationSections = useMemo(
+    () => (viewModel ? buildReviewNavigationSections({ documents, driver: viewModel.driver }) : []),
+    [documents, viewModel]
+  );
 
-  const updateDocumentStatus = (docId, status) => {
-    setDocuments((prev) => prev.map((doc) => (doc.id === docId ? { ...doc, status } : doc)));
+  useEffect(() => {
+    if (!navigationSections.length) return;
+    if (navigationSections.some((section) => section.id === activeSection)) return;
+    setActiveSection(navigationSections[0].id);
+  }, [activeSection, navigationSections]);
+
+  const reviewMetrics = useMemo(() => computeEvidenceReviewMetrics(documents), [documents]);
+
+  const sectionScore = useMemo(() => computeReviewSectionScores(documents), [documents]);
+
+  const getEvidenceId = (docId) => {
+    const doc = documents.find((item) => String(item.id) === String(docId));
+    return doc?.evidenceId || doc?.id;
   };
 
-  const handleApprove = (docId) => updateDocumentStatus(docId, 'approved');
-  const handleReject = (docId) => updateDocumentStatus(docId, 'rejected');
-  const handleRequestResub = (docId) => updateDocumentStatus(docId, 'resub_requested');
+  const persistEvidenceStatus = async (docId, status) => {
+    if (viewModel?.validation?.status === 'completed') {
+      showFeedback('La validación ya está completada. No se pueden modificar evidencias.', 'error');
+      return;
+    }
+
+    const evidenceId = getEvidenceId(docId);
+    if (!evidenceId) throw new Error('No se encontró la evidencia del documento.');
+
+    const previous = documents;
+    setDocuments((prev) =>
+      prev.map((doc) => (String(doc.id) === String(docId) ? { ...doc, status } : doc))
+    );
+
+    try {
+      setActionLoading(true);
+      await updateEvidenceReview(evidenceId, {
+        reviewStatus: UI_TO_API_STATUS[status] || status,
+      });
+      await refreshReviewBundle();
+      showFeedback('Estado del documento actualizado.');
+    } catch (persistError) {
+      setDocuments(previous);
+      showFeedback(persistError?.message || 'No se pudo guardar el estado del documento.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = (docId) => persistEvidenceStatus(docId, 'approved');
+  const handleReject = (docId) => persistEvidenceStatus(docId, 'rejected');
+  const handleRequestResub = (docId) => persistEvidenceStatus(docId, 'resub_requested');
+
+  const handleSaveObservations = async () => {
+    try {
+      setActionLoading(true);
+      await updateValidationObservations(validationId, observations);
+      await refreshReviewBundle();
+      showFeedback('Observaciones guardadas.');
+    } catch (saveError) {
+      showFeedback(saveError?.message || 'No se pudieron guardar las observaciones.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleComplete = async (action) => {
+    const successMessages = {
+      approve: 'Conductor aprobado correctamente.',
+      reject: 'Conductor rechazado.',
+      request_resub: 'Solicitud de reenvío registrada.',
+    };
+
+    try {
+      setActionLoading(true);
+      await completeValidation(validationId, { action, observations });
+      await refreshReviewBundle();
+      showFeedback(successMessages[action] || 'Acción completada.');
+      if (action === 'request_resub') {
+        navigate(`/herramientas/agencia/conductores`);
+      }
+    } catch (completeError) {
+      showFeedback(completeError?.message || 'No se pudo completar la acción.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -117,8 +228,18 @@ const DriverVerificationPage = () => {
     );
   }
 
+  const isClosed = ['completed', 'cancelled', 'expired'].includes(viewModel.validation?.status);
+  const evidenceActionsDisabled = viewModel.validation?.status === 'completed';
+
   return (
     <Box sx={{ p: { xs: 1.5, md: 2 } }}>
+      {isClosed && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Esta validación está cerrada (
+          {viewModel.validation?.statusLabel || viewModel.validation?.status}).
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: 'grid',
@@ -132,20 +253,33 @@ const DriverVerificationPage = () => {
             lg: '"header header header" "left main right"',
           },
           alignItems: 'start',
+          opacity: actionLoading ? 0.85 : 1,
+          pointerEvents: actionLoading ? 'none' : 'auto',
         }}
       >
         <Box sx={{ gridArea: 'header' }}>
-          <VerificationHeader driver={viewModel.driver} validation={viewModel.validation} />
-        </Box>
-
-        <Box sx={{ gridArea: 'left', minWidth: 0 }}>
-          <VerificationSidebar
-            sections={viewModel.sections}
-            activeSection={activeSection}
-            onSectionChange={setActiveSection}
-            score={viewModel.score}
+          <VerificationHeader
+            driver={viewModel.driver}
+            validation={viewModel.validation}
+            agenda={viewModel.agenda}
+            docsProgress={reviewMetrics.docsProgress}
           />
         </Box>
+
+        <Stack direction="column" spacing={2}>
+          <VerificationSidebar
+            sections={navigationSections}
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            score={sectionScore}
+          />
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Checklist operativo
+            </Typography>
+            <OperativeChecklist documents={documents} />
+          </Paper>
+        </Stack>
 
         <Box sx={{ gridArea: 'main', minWidth: 0 }}>
           <Paper variant="outlined" sx={{ p: 2 }}>
@@ -154,10 +288,10 @@ const DriverVerificationPage = () => {
               onApprove={handleApprove}
               onReject={handleReject}
               onRequestResub={handleRequestResub}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              vehicle={viewModel.vehicle}
+              activeSection={activeSection}
+              driver={viewModel.driver}
               biometric={viewModel.biometric}
+              actionsDisabled={evidenceActionsDisabled}
             />
           </Paper>
         </Box>
@@ -166,9 +300,15 @@ const DriverVerificationPage = () => {
           <Stack spacing={2}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Checklist operativo
+                Acciones finales
               </Typography>
-              <OperativeChecklist documents={documents} />
+              <FinalActions
+                documents={documents}
+                disabled={isClosed}
+                onApprove={() => handleComplete('approve')}
+                onReject={() => handleComplete('reject')}
+                onRequestResub={() => handleComplete('request_resub')}
+              />
             </Paper>
 
             <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -178,7 +318,8 @@ const DriverVerificationPage = () => {
               <ReviewerObservations
                 value={observations}
                 onChange={setObservations}
-                onSave={() => {}}
+                onSave={handleSaveObservations}
+                disabled={isClosed}
               />
             </Paper>
 
@@ -188,21 +329,17 @@ const DriverVerificationPage = () => {
               </Typography>
               <ActivityTimeline events={viewModel.events} />
             </Paper>
-
-            <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Acciones finales
-              </Typography>
-              <FinalActions
-                documents={documents}
-                onApprove={() => {}}
-                onReject={() => {}}
-                onRequestResub={() => {}}
-              />
-            </Paper>
           </Stack>
         </Box>
       </Box>
+
+      <Snackbar
+        open={feedback.open}
+        autoHideDuration={4000}
+        onClose={() => setFeedback((prev) => ({ ...prev, open: false }))}
+        message={feedback.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };

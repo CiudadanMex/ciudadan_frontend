@@ -32,7 +32,14 @@ const STATUS_CONFIG = {
   },
 };
 
-const DocumentCard = ({ doc, onApprove, onReject, onRequestResub, onZoom }) => {
+const DocumentCard = ({
+  doc,
+  onApprove,
+  onReject,
+  onRequestResub,
+  onZoom,
+  actionsDisabled = false,
+}) => {
   const status = STATUS_CONFIG[doc.status] || STATUS_CONFIG.pending;
   const hasPreview = Boolean(doc.imageUrl);
   const hasFile = Boolean(doc.fileUrl || doc.imageUrl);
@@ -50,12 +57,14 @@ const DocumentCard = ({ doc, onApprove, onReject, onRequestResub, onZoom }) => {
       <Box
         sx={{
           position: 'relative',
-          height: 150,
-          minHeight: 150,
+          width: '100%',
+          aspectRatio: '4 / 3',
+          minHeight: { xs: 100, sm: 120 },
           overflow: 'hidden',
           bgcolor: 'grey.100',
           display: 'grid',
           placeItems: 'center',
+          flexShrink: 0,
           '&:hover .overlay': { opacity: 1 },
         }}
       >
@@ -101,7 +110,11 @@ const DocumentCard = ({ doc, onApprove, onReject, onRequestResub, onZoom }) => {
           >
             <VisibilityOutlinedIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" sx={{ bgcolor: 'background.paper' }} onClick={() => onZoom?.(doc)}>
+          <IconButton
+            size="small"
+            sx={{ bgcolor: 'background.paper' }}
+            onClick={() => onZoom?.(doc)}
+          >
             <ZoomInOutlinedIcon fontSize="small" />
           </IconButton>
           <IconButton
@@ -127,20 +140,41 @@ const DocumentCard = ({ doc, onApprove, onReject, onRequestResub, onZoom }) => {
         </Typography>
       </CardContent>
       <CardActions sx={{ pt: 0, px: 1.5, pb: 1.5 }}>
-        <Tooltip title="Aprobar">
-          <IconButton color="success" size="small" onClick={() => onApprove(doc.id)}>
-            <CheckCircleOutlineIcon fontSize="small" />
-          </IconButton>
+        <Tooltip title={actionsDisabled ? 'Validación completada' : 'Aprobar'}>
+          <span>
+            <IconButton
+              color="success"
+              size="small"
+              onClick={() => onApprove(doc.id)}
+              disabled={actionsDisabled}
+            >
+              <CheckCircleOutlineIcon fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
-        <Tooltip title="Rechazar">
-          <IconButton color="error" size="small" onClick={() => onReject(doc.id)}>
-            <CancelOutlinedIcon fontSize="small" />
-          </IconButton>
+        <Tooltip title={actionsDisabled ? 'Validación completada' : 'Rechazar'}>
+          <span>
+            <IconButton
+              color="error"
+              size="small"
+              onClick={() => onReject(doc.id)}
+              disabled={actionsDisabled}
+            >
+              <CancelOutlinedIcon fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
-        <Tooltip title="Solicitar reenvío">
-          <IconButton color="secondary" size="small" onClick={() => onRequestResub(doc.id)}>
-            <ChatBubbleOutlineIcon fontSize="small" />
-          </IconButton>
+        <Tooltip title={actionsDisabled ? 'Validación completada' : 'Solicitar reenvío'}>
+          <span>
+            <IconButton
+              color="secondary"
+              size="small"
+              onClick={() => onRequestResub(doc.id)}
+              disabled={actionsDisabled}
+            >
+              <ChatBubbleOutlineIcon fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Zoom">
           <IconButton size="small" onClick={() => onZoom?.(doc)}>
@@ -165,6 +199,7 @@ DocumentCard.propTypes = {
   onReject: PropTypes.func.isRequired,
   onRequestResub: PropTypes.func.isRequired,
   onZoom: PropTypes.func,
+  actionsDisabled: PropTypes.bool,
 };
 
 export default DocumentCard;

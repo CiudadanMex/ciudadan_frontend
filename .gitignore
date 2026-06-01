@@ -24,7 +24,11 @@ ciudadan-app.rar
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/package-lock.json
+/yarn.lock
 
 # Cursor and Agents
 .cursor
 .agents
+/skills-lock.json
+

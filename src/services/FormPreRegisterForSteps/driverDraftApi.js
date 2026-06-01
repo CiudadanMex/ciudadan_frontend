@@ -198,6 +198,17 @@ export const createValidationFromAgenda = async ({
   };
 };
 
+export const fetchResubmissionContext = async (driverId) => {
+  if (!driverId) return null;
+  const url = `${STRAPI_URL}/api/cars-validations/resubmission-context?driverId=${encodeURIComponent(driverId)}`;
+  const res = await fetch(url, { credentials: 'include' });
+  const data = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new Error(data?.error?.message || 'No se pudo cargar el contexto de reenvío.');
+  }
+  return data?.data || null;
+};
+
 export const resolveValidationByAgenda = async (agendaId) => {
   if (!agendaId) return null;
   const url = `${STRAPI_URL}/api/cars-validations/resolve?agendaId=${encodeURIComponent(agendaId)}`;

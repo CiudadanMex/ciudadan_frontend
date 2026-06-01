@@ -5,7 +5,7 @@ import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
-const FinalActions = ({ documents, onApprove, onReject, onRequestResub }) => {
+const FinalActions = ({ documents, onApprove, onReject, onRequestResub, disabled = false }) => {
   const pendingCount = documents.filter(
     (doc) => doc.status === 'pending' || doc.status === 'needs_review'
   ).length;
@@ -22,7 +22,7 @@ const FinalActions = ({ documents, onApprove, onReject, onRequestResub }) => {
             variant="contained"
             color="success"
             startIcon={<HowToRegIcon />}
-            disabled={pendingCount > 0}
+            disabled={disabled || pendingCount > 0}
             onClick={onApprove}
           >
             Aprobar conductor
@@ -34,6 +34,7 @@ const FinalActions = ({ documents, onApprove, onReject, onRequestResub }) => {
         variant="contained"
         color="error"
         startIcon={<PersonRemoveIcon />}
+        disabled={disabled}
         onClick={onReject}
       >
         Rechazar conductor
@@ -42,6 +43,7 @@ const FinalActions = ({ documents, onApprove, onReject, onRequestResub }) => {
         fullWidth
         variant="contained"
         startIcon={<RefreshIcon />}
+        disabled={disabled}
         sx={{ bgcolor: '#7F77DD', '&:hover': { bgcolor: '#6B64C8' } }}
         onClick={onRequestResub}
       >
@@ -64,6 +66,7 @@ FinalActions.propTypes = {
   onApprove: PropTypes.func.isRequired,
   onReject: PropTypes.func.isRequired,
   onRequestResub: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
 };
 
 export default FinalActions;

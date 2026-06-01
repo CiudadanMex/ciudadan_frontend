@@ -21,9 +21,16 @@ const STATUS_MAP = {
   pending: { color: 'warning', label: 'Pendiente' },
   active: { color: 'info', label: 'Activa' },
   under_review: { color: 'info', label: 'En revisión' },
+  awaiting_resubmission: { color: 'warning', label: 'Esperando reenvío' },
   completed: { color: 'success', label: 'Completada' },
   expired: { color: 'default', label: 'Expirada' },
   cancelled: { color: 'default', label: 'Cancelada' },
+  pendiente: { color: 'warning', label: 'Cita pendiente' },
+  en_revision: { color: 'info', label: 'Cita en revisión' },
+  resubir_archivos: { color: 'warning', label: 'Resubir archivos' },
+  completada: { color: 'success', label: 'Cita completada' },
+  cancelada: { color: 'default', label: 'Cita cancelada' },
+  expirada: { color: 'default', label: 'Cita expirada' },
 };
 
 const formatAppointmentDate = (value) => {
@@ -31,14 +38,22 @@ const formatAppointmentDate = (value) => {
   return dayjs(value).format('D MMM YYYY, h:mm a');
 };
 
-const VerificationHeader = ({ driver, validation }) => {
+const VerificationHeader = ({ driver, validation, agenda, docsProgress }) => {
   if (!driver) return null;
 
   const statusKey = validation?.status || driver?.status;
   const statusConfig = STATUS_MAP[statusKey] || STATUS_MAP.pending;
-  const appointmentDate = validation?.appointmentDate || driver?.appointmentDate;
-  const progressValue =
-    ((driver?.docsProgress?.completed || 0) / (driver?.docsProgress?.total || 1)) * 100;
+  const agendaStatusKey = agenda?.estado;
+  const agendaStatusConfig = agendaStatusKey
+    ? STATUS_MAP[agendaStatusKey] || {
+        color: 'default',
+        label: agenda?.estadoLabel || agendaStatusKey,
+      }
+    : null;
+  const appointmentDate =
+    validation?.appointmentDate || agenda?.fechaInicio || driver?.appointmentDate;
+  const progress = docsProgress || driver?.docsProgress;
+  const progressValue = ((progress?.completed || 0) / (progress?.total || 1)) * 100;
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -55,7 +70,17 @@ const VerificationHeader = ({ driver, validation }) => {
               {driver?.id} • {formatAppointmentDate(appointmentDate)} • {driver?.branch}
             </Typography>
           </Box>
-          <Chip color={statusConfig.color} label={statusConfig.label} size="small" />
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Chip color={statusConfig.color} label={statusConfig.label} size="small" />
+            {agendaStatusConfig ? (
+              <Chip
+                color={agendaStatusConfig.color}
+                label={agendaStatusConfig.label}
+                size="small"
+                variant="outlined"
+              />
+            ) : null}
+          </Stack>
         </Stack>
 
         <Stack direction="row" spacing={1}>
@@ -71,7 +96,7 @@ const VerificationHeader = ({ driver, validation }) => {
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }} alignItems="center">
         <Box sx={{ flex: 1, width: '100%' }}>
           <Typography variant="caption" color="text.secondary">
-            Progreso documental ({driver?.docsProgress?.completed}/{driver?.docsProgress?.total})
+            Progreso documental ({progress?.completed}/{progress?.total})
           </Typography>
           <LinearProgress
             variant="determinate"
@@ -108,6 +133,17 @@ VerificationHeader.propTypes = {
     status: PropTypes.string,
     statusLabel: PropTypes.string,
     appointmentDate: PropTypes.string,
+  }),
+  agenda: PropTypes.shape({
+    id: PropTypes.string,
+    estado: PropTypes.string,
+    estadoLabel: PropTypes.string,
+    fechaInicio: PropTypes.string,
+  }),
+  docsProgress: PropTypes.shape({
+    completed: PropTypes.number,
+    total: PropTypes.number,
+    reviewed: PropTypes.number,
   }),
 };
 

@@ -15,7 +15,7 @@ const DOT_COLOR = {
   info: 'info.main',
 };
 
-const ActivityTimeline = ({ events = [] }) => (
+const ActivityTimeline = ({ events = [] }) =>
   events.length ? (
     <Timeline sx={{ m: 0, p: 0 }}>
       {events.map((event, idx) => (
@@ -26,8 +26,22 @@ const ActivityTimeline = ({ events = [] }) => (
           </TimelineSeparator>
           <TimelineContent sx={{ py: 0.5, px: 1 }}>
             <Typography variant="body2">{event.text}</Typography>
-            <Typography variant="caption" color="text.secondary">
+            {event.detail ? (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.25, whiteSpace: 'pre-wrap' }}
+              >
+                {event.detail}
+              </Typography>
+            ) : null}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 0.25 }}
+            >
               {event.time}
+              {event.actorName ? ` • ${event.actorName}` : ''}
             </Typography>
           </TimelineContent>
         </TimelineItem>
@@ -35,10 +49,9 @@ const ActivityTimeline = ({ events = [] }) => (
     </Timeline>
   ) : (
     <Typography variant="body2" color="text.secondary">
-      Sin actividad reciente.
+      Sin actividad registrada.
     </Typography>
-  )
-);
+  );
 
 ActivityTimeline.propTypes = {
   events: PropTypes.arrayOf(
@@ -47,6 +60,8 @@ ActivityTimeline.propTypes = {
       type: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
       time: PropTypes.string.isRequired,
+      detail: PropTypes.string,
+      actorName: PropTypes.string,
     })
   ),
 };
