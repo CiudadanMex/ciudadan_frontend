@@ -1,13 +1,5 @@
-import { useState } from 'react';
-import {
-  Box,
-  Container,
-  Typography,
-  Tabs,
-  Tab,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Container, Typography, Tabs, Tab, useTheme, useMediaQuery } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,14 +12,32 @@ import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import BookIcon from '@mui/icons-material/Book';
 import Tareas from './../../components/Cowork/Tareas.jsx';
+import TareasEspecializadas from './../../components/Cowork/TareasEspecializadas.jsx';
 import EventosGrid from './../Eventos/EventosGrid.jsx';
 import HerramientrasGrid from './../../components/Cowork/HerramientrasGrid.jsx';
+import { useRoles } from '../../Contexts/RolesContext.jsx';
+import { useSearchParams } from 'react-router-dom';
 
 // Colores base
 const neonGreen = '#00ff99';
 const amarilloCiudadan = '#f5c400';
 const darkGray = '#1a1a1a';
 const fondoVerdeOscuro = '#022b23'; // 🟢 Nuevo color de fondo
+
+const getTabFromSearchParams = (searchParams) => {
+  const tabParam = searchParams.get('tab');
+
+  switch (tabParam) {
+    case 'socio':
+      return 0;
+    case 'generales':
+      return 1;
+    case 'especializadas':
+      return 2;
+    default:
+      return 0;
+  }
+};
 
 // 🔹 Tabs principales (barra amarilla)
 const StyledTab = styled(Tab)(({ theme }) => ({
@@ -109,10 +119,18 @@ const SubTabs = styled((props) => (
 });
 
 const CooWork = () => {
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => getTabFromSearchParams(searchParams));
   const [subTab, setSubTab] = useState(0);
   const theme = useTheme();
+  const { userData } = useRoles();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  useEffect(() => {
+    if (!searchParams.get('tab')) return;
+    setTab(getTabFromSearchParams(searchParams));
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleTabChange = (event, newValue) => setTab(newValue);
   const handleSubTabChange = (event, newValue) => setSubTab(newValue);
@@ -153,7 +171,6 @@ const CooWork = () => {
           </StyledTabs>
         </Container>
       </Box>
-
       {/* 💚 Sub-barra (solo en Socio) */}
       <AnimatePresence>
         {tab === 0 && (
@@ -192,7 +209,6 @@ const CooWork = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* 🔸 Contenido principal */}
       <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
         {tab === 0 && (
@@ -202,7 +218,7 @@ const CooWork = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {subTab === 0 && <Tareas />}
+            {subTab === 0 && <Tareas userId={userData?.id} subTab={subTab} />}
             {subTab === 1 && <HerramientrasGrid />}
             {subTab === 2 && <EventosGrid />}
             {subTab === 3 && (
@@ -245,6 +261,7 @@ const CooWork = () => {
             <Typography color="#ccc">
               Gestiona tareas técnicas y de alto impacto dentro del ecosistema Ciudadan.
             </Typography>
+            <TareasEspecializadas />
           </motion.div>
         )}
       </Container>
