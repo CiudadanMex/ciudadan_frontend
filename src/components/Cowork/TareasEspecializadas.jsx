@@ -30,7 +30,12 @@ import { styled } from '@mui/material/styles';
 import { useAuth0 } from '@auth0/auth0-react';
 import { TareaCard } from './Tareas.jsx';
 import { useRoles } from '../../Contexts/RolesContext.jsx';
-import { assignUserAreas } from '../../services/cowork/mutationsServices.js';
+import { useRecurrenciaValidation } from '../../hooks/useRecurrenciaValidation.jsx';
+import {
+  assignUserAreas,
+  createTask,
+  updateTodoStatus,
+} from '../../services/cowork/mutationsServices.js';
 import {
   getAvailableRootAreas,
   getSpecializedTodos,
@@ -186,17 +191,24 @@ const AssignAreasForm = ({
   </Paper>
 );
 
-const TaskGrid = ({ tasks }) => (
+const TaskGrid = ({ tasks, renderActions }) => (
   <Stack spacing={{ xs: 2, md: 3 }}>
     {tasks.map((task) => (
       <Box key={task.id}>
-        <TareaCard tarea={task} />
+        <TareaCard tarea={task} actions={renderActions?.(task)} />
       </Box>
     ))}
   </Stack>
 );
 
-const SubareaAccordion = ({ subarea, defaultExpanded }) => (
+const SubareaAccordion = ({
+  subarea,
+  defaultExpanded,
+  handleResolve,
+  resolvingId,
+  canUserTakeTask,
+  userId,
+}) => (
   <Accordion
     defaultExpanded={defaultExpanded}
     disableGutters
@@ -257,7 +269,29 @@ const SubareaAccordion = ({ subarea, defaultExpanded }) => (
         bgcolor: 'rgba(0,0,0,0.18)',
       }}
     >
-      <TaskGrid tasks={subarea.tasks} />
+      <TaskGrid
+        tasks={subarea.tasks}
+        renderActions={(task) =>
+          task.status === 'publicada' && canUserTakeTask(task, userId) ? (
+            <Button
+              variant="contained"
+              size="small"
+              disabled={resolvingId === task.id}
+              onClick={() => handleResolve(task)}
+              sx={{
+                bgcolor: '#00ff99',
+                color: '#002200',
+                fontWeight: 700,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#00e68a' },
+                '&.Mui-disabled': { bgcolor: 'rgba(0,255,153,0.3)', color: '#004d33' },
+              }}
+            >
+              {resolvingId === task.id ? 'Asignando...' : 'Resolver tarea'}
+            </Button>
+          ) : null
+        }
+      />
     </AccordionDetails>
   </Accordion>
 );
@@ -274,6 +308,8 @@ const TareasEspecializadas = () => {
   const [error, setError] = useState(null);
   const [assignError, setAssignError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [resolvingId, setResolvingId] = useState(null);
+  const { canUserTakeTask } = useRecurrenciaValidation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated, isLoading: authLoading, loginWithRedirect } = useAuth0();
@@ -374,6 +410,35 @@ const TareasEspecializadas = () => {
       setAssigningAreas(false);
     }
   };
+
+  const handleResolve = useCallback(
+    async (todo) => {
+      if (!userId) return;
+
+      if (!canUserTakeTask(todo, userId)) {
+        setError('Esta tarea ya no está disponible para ser asignada.');
+        return;
+      }
+
+      try {
+        setResolvingId(todo.id);
+        setError(null);
+        setSuccess(null);
+
+        await createTask(userId, todo.id);
+        await updateTodoStatus(todo.id, 'asignada');
+
+        setTasks((prev) => prev.filter((t) => t.id !== todo.id));
+        setSuccess(`Tarea "${todo.titulo}" asignada correctamente.`);
+      } catch (err) {
+        console.error('Error asignando tarea:', err);
+        setError(err.message || 'No se pudo asignar la tarea');
+      } finally {
+        setResolvingId(null);
+      }
+    },
+    [userId, canUserTakeTask]
+  );
 
   const hierarchy = useMemo(() => buildAreaHierarchy(areas, tasks), [areas, tasks]);
   const selectedArea = hierarchy[areaTab];
@@ -520,7 +585,29 @@ const TareasEspecializadas = () => {
                   </Typography>
                 </Box>
               )}
-              <TaskGrid tasks={selectedArea.directTasks} />
+              <TaskGrid
+                tasks={selectedArea.directTasks}
+                renderActions={(task) =>
+                  task.status === 'publicada' && canUserTakeTask(task, userId) ? (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      disabled={resolvingId === task.id}
+                      onClick={() => handleResolve(task)}
+                      sx={{
+                        bgcolor: '#00ff99',
+                        color: '#002200',
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        '&:hover': { bgcolor: '#00e68a' },
+                        '&.Mui-disabled': { bgcolor: 'rgba(0,255,153,0.3)', color: '#004d33' },
+                      }}
+                    >
+                      {resolvingId === task.id ? 'Asignando...' : 'Resolver tarea'}
+                    </Button>
+                  ) : null
+                }
+              />
             </Stack>
           )}
 
@@ -529,6 +616,10 @@ const TareasEspecializadas = () => {
               key={subarea.id}
               subarea={subarea}
               defaultExpanded={selectedArea.subareas.length === 1}
+              handleResolve={handleResolve}
+              resolvingId={resolvingId}
+              canUserTakeTask={canUserTakeTask}
+              userId={userId}
             />
           ))}
         </Stack>

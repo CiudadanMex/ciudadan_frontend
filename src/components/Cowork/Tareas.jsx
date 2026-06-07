@@ -24,7 +24,7 @@ const formatearFecha = (fecha) => {
   return `${dia}/${mes}/${anio}`;
 };
 
-export const TareaCard = ({ tarea }) => {
+export const TareaCard = ({ tarea, actions }) => {
   return (
     <Paper
       elevation={4}
@@ -72,6 +72,10 @@ export const TareaCard = ({ tarea }) => {
           <Typography variant="body2">📅 {formatearFecha(tarea.fechaEntrega)}</Typography>
         </Box>
       </Box>
+
+      {actions && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>{actions}</Box>
+      )}
     </Paper>
   );
 };

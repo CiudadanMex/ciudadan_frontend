@@ -39,6 +39,7 @@ export const normalizeTask = (item) => {
     efectivo: attrs.pagos_efectivo || 0,
     fechaEntrega: attrs.fecha_entrega || null,
     status: attrs.status,
+    recurrencia: attrs.recurrencia,
     areas: normalizeAreas(attrs.areas),
     subareas: normalizeAreas(attrs.subareas),
   };
@@ -93,3 +94,14 @@ export const buildAreaHierarchy = (areas, tasks) =>
 
 export const parseAreaSelectValue = (value) =>
   typeof value === 'string' ? value.split(',').map(Number) : value;
+
+export const canUserTakeTask = (todo, userId, existingTasks) => {
+  const recurrencia = todo.recurrencia ?? 'unica';
+  const tasksForTodo = existingTasks.filter((t) => t.todo?.id === todo.id);
+
+  if (recurrencia === 'unica') {
+    return tasksForTodo.length === 0;
+  }
+
+  return !tasksForTodo.some((t) => t.usuario?.id === userId);
+};

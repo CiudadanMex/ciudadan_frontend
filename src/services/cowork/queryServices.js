@@ -16,6 +16,20 @@ export const getSpecializedTodos = () =>
     'No se pudieron cargar las tareas especializadas'
   );
 
+export const getAllTasksWithUsers = () =>
+  fetchJson(
+    `${STRAPI_URL}/api/tareas?populate[usuario]=*&populate[todo]=*&pagination[limit]=10000`,
+    {},
+    'No se pudieron cargar las tareas existentes'
+  );
+
+export const getGeneralTodos = () =>
+  fetchJson(
+    `${STRAPI_URL}/api/todos?pagination[limit]=1000&sort[0]=id:desc`,
+    {},
+    'No se pudieron cargar las tareas generales'
+  );
+
 export const getAvailableRootAreas = () =>
   fetchJson(
     `${STRAPI_URL}/api/areas?filters[nivel][$eq]=0&pagination[limit]=1000&sort[0]=nombre:asc`,

@@ -1,5 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Box, Container, Typography, Tabs, Tab, useTheme, useMediaQuery } from '@mui/material';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Box,
+  Button,
+  Container,
+  Stack,
+  Typography,
+  Tabs,
+  Tab,
+  useTheme,
+  useMediaQuery,
+  CircularProgress,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,12 +22,15 @@ import PaidIcon from '@mui/icons-material/Paid';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import BookIcon from '@mui/icons-material/Book';
-import Tareas from './../../components/Cowork/Tareas.jsx';
+import Tareas, { TareaCard } from './../../components/Cowork/Tareas.jsx';
 import TareasEspecializadas from './../../components/Cowork/TareasEspecializadas.jsx';
 import EventosGrid from './../Eventos/EventosGrid.jsx';
 import HerramientrasGrid from './../../components/Cowork/HerramientrasGrid.jsx';
 import { useRoles } from '../../Contexts/RolesContext.jsx';
 import { useSearchParams } from 'react-router-dom';
+import { getGeneralTodos } from '../../services/cowork/queryServices.js';
+import { createTask, updateTodoStatus } from '../../services/cowork/mutationsServices.js';
+import { useRecurrenciaValidation } from '../../hooks/useRecurrenciaValidation.jsx';
 
 // Colores base
 const neonGreen = '#00ff99';
@@ -122,9 +136,14 @@ const CooWork = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState(() => getTabFromSearchParams(searchParams));
   const [subTab, setSubTab] = useState(0);
+  const [generalTodos, setGeneralTodos] = useState([]);
+  const [loadingGeneral, setLoadingGeneral] = useState(false);
+  const [resolvingGeneralId, setResolvingGeneralId] = useState(null);
+  const [generalError, setGeneralError] = useState(null);
   const theme = useTheme();
   const { userData } = useRoles();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { canUserTakeTask } = useRecurrenciaValidation();
 
   useEffect(() => {
     if (!searchParams.get('tab')) return;
@@ -134,6 +153,70 @@ const CooWork = () => {
 
   const handleTabChange = (event, newValue) => setTab(newValue);
   const handleSubTabChange = (event, newValue) => setSubTab(newValue);
+
+  const fetchGeneralTodos = useCallback(async () => {
+    try {
+      setLoadingGeneral(true);
+      setGeneralError(null);
+      const json = await getGeneralTodos();
+      setGeneralTodos(
+        (json.data || [])
+          .map((item) => {
+            const attrs = item.attributes || item;
+            return {
+              id: item.id,
+              titulo: attrs.titulo || 'Sin título',
+              descripcion: attrs.descripcion || '',
+              tiempoMin: attrs.minutos_desarrollo || 0,
+              labory: attrs.recompensa ?? attrs.pagos_laborys ?? 0,
+              efectivo: attrs.pagos_efectivo || 0,
+              fechaEntrega: attrs.fecha_entrega || null,
+              status: attrs.status,
+              nivel: attrs.nivel,
+              recurrencia: attrs.recurrencia,
+            };
+          })
+          .filter((todo) => todo.status === 'publicada' && todo.nivel === 'general')
+      );
+    } catch (err) {
+      console.error('Error cargando tareas generales:', err);
+      setGeneralError('No se pudieron cargar las tareas generales');
+    } finally {
+      setLoadingGeneral(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 1) fetchGeneralTodos();
+  }, [tab, fetchGeneralTodos]);
+
+  const handleResolveGeneral = useCallback(
+    async (todo) => {
+      const userId = userData?.id;
+      if (!userId) return;
+
+      if (!canUserTakeTask(todo, userId)) {
+        setGeneralError('Esta tarea ya no está disponible para ser asignada.');
+        return;
+      }
+
+      try {
+        setResolvingGeneralId(todo.id);
+        setGeneralError(null);
+
+        await createTask(userId, todo.id);
+        await updateTodoStatus(todo.id, 'asignada');
+
+        setGeneralTodos((prev) => prev.filter((t) => t.id !== todo.id));
+      } catch (err) {
+        console.error('Error asignando tarea general:', err);
+        setGeneralError(err.message || 'No se pudo asignar la tarea');
+      } finally {
+        setResolvingGeneralId(null);
+      }
+    },
+    [userData?.id, canUserTakeTask]
+  );
 
   return (
     <Box
@@ -244,7 +327,57 @@ const CooWork = () => {
             <Typography variant="h5" fontWeight={700} gutterBottom color="white">
               🧱 Tareas Generales
             </Typography>
-            <Tareas />
+            <Typography color="#ccc" sx={{ mb: 3 }}>
+              Estas tareas están disponibles para que cualquier socio las resuelva.
+            </Typography>
+
+            {generalError && (
+              <Typography color="error" sx={{ mb: 2 }}>
+                {generalError}
+              </Typography>
+            )}
+
+            {loadingGeneral ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                <CircularProgress sx={{ color: amarilloCiudadan }} />
+              </Box>
+            ) : generalTodos.length === 0 ? (
+              <Typography sx={{ color: '#aaa', textAlign: 'center', py: 6 }}>
+                No hay tareas generales disponibles en este momento.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {generalTodos.map((todo) => (
+                  <TareaCard
+                    key={todo.id}
+                    tarea={todo}
+                    actions={
+                      canUserTakeTask(todo, userData?.id) ? (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          disabled={resolvingGeneralId === todo.id}
+                          onClick={() => handleResolveGeneral(todo)}
+                          sx={{
+                            bgcolor: neonGreen,
+                            color: '#002200',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            '&:hover': { bgcolor: '#00e68a' },
+                            '&.Mui-disabled': {
+                              bgcolor: 'rgba(0,255,153,0.3)',
+                              color: '#004d33',
+                            },
+                          }}
+                        >
+                          {resolvingGeneralId === todo.id ? 'Asignando...' : 'Resolver tarea'}
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </Stack>
+            )}
           </motion.div>
         )}
 
