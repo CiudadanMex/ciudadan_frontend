@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useLocation } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -50,9 +51,7 @@ import {
 import {
   createDriverAgenda,
   createDriverDraft,
-  createValidationFromAgenda,
   fetchAgencies,
-  fetchResubmissionContext,
   getLatestDriverAgendaByUser,
   getDriverDraftByUser,
   getUserByEmail,
@@ -60,13 +59,6 @@ import {
   updateStrapiUserProfile,
   updateDriverDraft,
 } from '../../services/FormPreRegisterForSteps/driverDraftApi.js';
-import { getAgendaEstadoLabel } from '../../constants/agendaEstado';
-import {
-  getPendingResubFieldsForStep,
-  getResubMetaByField,
-  getPendingResubStepIds,
-} from '../../utils/preRegisterForSteps/resubmissionFieldMap';
-import { syncValidationFromDriver } from '../../services/driverVerification/setters.js';
 
 const documentosDespues = [
   'Validacion fisica de originales en la cita',
@@ -121,7 +113,7 @@ const buildUserProfilePayload = (values) => {
   };
 };
 
-const buildAgendaPayload = (values, userId, agencies = [], driverId = null) => {
+const buildAgendaPayload = (values, userId, agencies = []) => {
   const appointmentDate = values.fecha ? new Date(values.fecha) : null;
   const isDateValid = appointmentDate && !Number.isNaN(appointmentDate.getTime());
   const selectedAgency = agencies.find((agency) => String(agency.id) === String(values.sede || ''));
@@ -141,6 +133,7 @@ const buildAgendaPayload = (values, userId, agencies = [], driverId = null) => {
     usuario: userId,
     ciudad,
     estado: 'pendiente',
+    status: 'pendiente',
     fecha_inicio: fechaISO,
     descripcion: 'Preregistro conductor',
     observaciones: 'preregistro conductor',
@@ -163,7 +156,6 @@ const buildAgendaPayload = (values, userId, agencies = [], driverId = null) => {
         sede_id: values.sede || null,
         sede_nombre: selectedAgency?.nombre || null,
         revisado_en: new Date().toISOString(),
-        driver_id: driverId || null,
       },
     },
   };
@@ -177,19 +169,11 @@ const isMediaFieldValue = (value) => {
   if (typeof File !== 'undefined' && value instanceof File) return true;
   if (Array.isArray(value)) {
     return value.some(
-      (item) => (typeof File !== 'undefined' && item instanceof File) || hasMediaReference(item)
+      (item) =>
+        (typeof File !== 'undefined' && item instanceof File) || hasMediaReference(item)
     );
   }
   return hasMediaReference(value);
-};
-
-const buildResubmissionStepOrder = (requiredDocuments = []) => {
-  const pendingStepIds = getPendingResubStepIds(requiredDocuments);
-  const orderedPendingSteps = WIZARD_STEPS.map((step) => step.id).filter((stepId) =>
-    pendingStepIds.has(stepId)
-  );
-
-  return ['bienvenida', ...orderedPendingSteps];
 };
 
 const FormPreRegisterForSteps = () => {
@@ -201,7 +185,8 @@ const FormPreRegisterForSteps = () => {
 
   console.log('methods', methods.getValues());
   const stepRules = useMemo(() => buildStepRules(), []);
-  const { user: auth0User } = useAuth0();
+  const { user: auth0User, isAuthenticated, isLoading: authLoading, loginWithRedirect } = useAuth0();
+  const location = useLocation();
   const { userData } = useRoles();
 
   const [bootLoading, setBootLoading] = useState(true);
@@ -210,19 +195,12 @@ const FormPreRegisterForSteps = () => {
   const [needsAccount, setNeedsAccount] = useState(false);
   const [driverDraft, setDriverDraft] = useState(null);
   const [existingAgenda, setExistingAgenda] = useState(null);
-  const [resubmissionContext, setResubmissionContext] = useState(null);
-  const [resubSuccessModalOpen, setResubSuccessModalOpen] = useState(false);
   const [successAgenda, setSuccessAgenda] = useState(null);
   const [agencies, setAgencies] = useState([]);
   const [identity, setIdentity] = useState({ email: '', userId: null });
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
 
-  const inResubMode = Boolean(resubmissionContext?.canEditPreregister);
-  const resubmissionStepOrder = useMemo(
-    () =>
-      inResubMode ? buildResubmissionStepOrder(resubmissionContext?.requiredDocuments || []) : null,
-    [inResubMode, resubmissionContext?.requiredDocuments]
-  );
-  const wizard = usePreregistroWizard({ needsAccount, stepOrderOverride: resubmissionStepOrder });
+  const wizard = usePreregistroWizard({ needsAccount });
   const persistence = useDraftPersistence();
   const uploads = useFileUploads();
   const phoneVerified = methods.watch('phoneVerified');
@@ -235,6 +213,7 @@ const FormPreRegisterForSteps = () => {
 
       const local = persistence.readLocalDraft();
       const localValues = local?.values;
+      const localStep = local?.currentStep;
       const rawEmail = userData?.email || auth0User?.email || '';
 
       try {
@@ -265,6 +244,12 @@ const FormPreRegisterForSteps = () => {
           const backendTime = draft?.updatedAt ? new Date(draft.updatedAt).getTime() : 0;
           const preferred = localTime > backendTime ? localValues : backendValues;
 
+          console.log('backendValues', backendValues);
+          console.log('localValues', localValues);
+          console.log('localTime', localTime);
+          console.log('backendTime', backendTime);
+          console.log('preferred', preferred);
+
           methods.reset({
             ...DEFAULT_FORM_VALUES,
             ...backendValues,
@@ -273,18 +258,6 @@ const FormPreRegisterForSteps = () => {
           });
           setIdentity({ email: rawEmail, userId: foundUser.id });
           setDriverDraft(draft);
-
-          let resubContext = null;
-          if (draft?.id) {
-            try {
-              resubContext = await fetchResubmissionContext(draft.id);
-            } catch {
-              resubContext = null;
-            }
-          }
-          if (!mounted) return;
-          setResubmissionContext(resubContext);
-
           setNeedsAccount(false);
           const hasDraftProgress = Boolean(
             draft?.profile_completed ||
@@ -304,16 +277,18 @@ const FormPreRegisterForSteps = () => {
             draft.current_step !== 'cuenta'
               ? draft.current_step
               : 'bienvenida';
+          const canResumeLocalStep = Boolean(localStep && wizard.stepOrder.includes(localStep));
+          const initialStep =
+            canResumeLocalStep && (createdDraft || backendStep === 'bienvenida')
+              ? localStep
+              : backendStep;
           // Nota temporal: rehabilitar el forzado a "verificacion" cuando backend exponga y persista
           // el campo phone_verified de forma confiable. Por ahora se respeta el current_step.
           // const forceVerification =
           //   !backendValues.phoneVerified &&
           //   ["personales", "documentos", "licencia", "vehiculo", "fotos", "cita", "resumen"].includes(backendStep);
-          const resumeFromResub = resubContext?.canEditPreregister ? 'bienvenida' : null;
-          const blockedByAgendaOnly =
-            Boolean(agenda?.id) && !allowExistingAgendaFlow && !resubContext?.canEditPreregister;
           wizard.setCurrentStepId(
-            resumeFromResub || (blockedByAgendaOnly ? 'bienvenida' : backendStep)
+            agenda?.id && !allowExistingAgendaFlow ? 'bienvenida' : initialStep
           );
         } else {
           methods.reset({
@@ -324,7 +299,6 @@ const FormPreRegisterForSteps = () => {
           setNeedsAccount(true);
           setIdentity({ email: rawEmail || '', userId: null });
           setExistingAgenda(null);
-          setResubmissionContext(null);
           wizard.setCurrentStepId('bienvenida');
         }
       } catch (error) {
@@ -336,7 +310,6 @@ const FormPreRegisterForSteps = () => {
         });
         setNeedsAccount(!rawEmail);
         setExistingAgenda(null);
-        setResubmissionContext(null);
         setScreenError(
           error?.message || 'No se pudo cargar el preregistro. Puedes continuar con respaldo local.'
         );
@@ -351,13 +324,26 @@ const FormPreRegisterForSteps = () => {
     };
   }, [auth0User?.email, userData?.email, allowExistingAgendaFlow]);
 
+  const handleLoginRedirect = async () => {
+    const currentStepId = wizard.currentStepId;
+    const nextStepId = wizard.stepOrder[wizard.currentIndex + 1] || currentStepId;
+    const values = methods.getValues();
+    persistence.saveSnapshot({
+      driverId: driverDraft?.id || null,
+      currentStep: nextStepId,
+      values,
+    });
+    setLoginPromptOpen(false);
+    await loginWithRedirect({
+      appState: { returnTo: location.pathname + location.search },
+    });
+  };
+
   const saveCurrentStep = async () => {
     setScreenError('');
     setGlobalSuccess('');
     const currentStepId = wizard.currentStepId;
-    const inResubMode = Boolean(resubmissionContext?.canEditPreregister);
-    const blockedByExistingAgenda =
-      Boolean(existingAgenda?.id) && !allowExistingAgendaFlow && !inResubMode;
+    const blockedByExistingAgenda = Boolean(existingAgenda?.id) && !allowExistingAgendaFlow;
 
     if (blockedByExistingAgenda) {
       persistence.setSaveStatus('error');
@@ -369,20 +355,13 @@ const FormPreRegisterForSteps = () => {
     }
 
     if (currentStepId === 'bienvenida') {
-      wizard.goNext();
-      return;
-    }
-
-    if (inResubMode) {
-      const allowedSteps = new Set(wizard.stepOrder.filter((stepId) => stepId !== 'bienvenida'));
-      if (!allowedSteps.has(currentStepId)) {
-        persistence.setSaveStatus('error');
-        persistence.setSaveMessage('Este paso no requiere corrección en este reenvío.');
-        setScreenError(
-          'Este paso no requiere corrección. Continúa en los pasos indicados por el revisor.'
-        );
+      if (authLoading) return;
+      if (!isAuthenticated) {
+        setLoginPromptOpen(true);
         return;
       }
+      wizard.goNext();
+      return;
     }
 
     persistence.setSaveStatus('saving');
@@ -442,9 +421,7 @@ const FormPreRegisterForSteps = () => {
         throw new Error('No se encontro un borrador de preregistro para guardar.');
 
       const uploadFields = fields.filter((fieldName) => isMediaFieldValue(values[fieldName]));
-      const mediaIds = uploadFields.length
-        ? await uploads.uploadStepFiles(uploadFields, values)
-        : {};
+      const mediaIds = uploadFields.length ? await uploads.uploadStepFiles(uploadFields, values) : {};
       const stepPayload = toDriverPayloadByStep(currentStepId, values, mediaIds);
       const updated = await updateDriverDraft(currentDraft.id, stepPayload);
       setDriverDraft(updated);
@@ -461,33 +438,6 @@ const FormPreRegisterForSteps = () => {
         values: values,
       });
 
-      if (inResubMode && uploadFields.length > 0) {
-        persistence.setSaveStatus('saved');
-        persistence.setSaveMessage('Documentos actualizados correctamente.');
-        if (!wizard.isLastStep) {
-          wizard.goNext();
-          return;
-        }
-
-        try {
-          await syncValidationFromDriver({
-            driverId: currentDraft.id,
-            userId: identity?.userId,
-            origin: 'reupload',
-          });
-          const refreshed = await fetchResubmissionContext(currentDraft.id);
-          setResubmissionContext(refreshed);
-        } catch (syncError) {
-          const message = syncError?.message || '';
-          if (!message.includes('No hay una validación activa')) {
-            throw syncError;
-          }
-        }
-
-        setResubSuccessModalOpen(true);
-        return;
-      }
-
       if (currentStepId === 'resumen') {
         if (!identity?.userId) {
           throw new Error('No encontramos tu usuario para agendar la cita.');
@@ -495,19 +445,11 @@ const FormPreRegisterForSteps = () => {
         const userPayload = buildUserProfilePayload(values);
         await updateStrapiUserProfile(identity.userId, userPayload);
 
-        const agendaPayload = buildAgendaPayload(values, identity.userId, agencies, updated.id);
+        const agendaPayload = buildAgendaPayload(values, identity.userId, agencies);
         if (!agendaPayload.fecha_inicio) {
           throw new Error('Selecciona una fecha y hora valida para la cita.');
         }
         const createdAgenda = await createDriverAgenda(agendaPayload);
-
-        await createValidationFromAgenda({
-          driverId: updated.id,
-          agendaId: createdAgenda.id,
-          agencyId: values.sede || null,
-          userId: identity.userId,
-          appointmentDate: agendaPayload.fecha_inicio,
-        });
 
         await updateDriverDraft(updated.id, buildFinalDriverPayload(values));
         persistence.clearLocalDraft();
@@ -533,67 +475,16 @@ const FormPreRegisterForSteps = () => {
     }
   };
 
-  const pendingResubFields = useMemo(
-    () =>
-      inResubMode
-        ? getPendingResubFieldsForStep(
-            wizard.currentStepId,
-            resubmissionContext?.requiredDocuments || []
-          )
-        : null,
-    [inResubMode, wizard.currentStepId, resubmissionContext?.requiredDocuments]
-  );
-  const resubMetaByField = useMemo(
-    () => (inResubMode ? getResubMetaByField(resubmissionContext?.requiredDocuments || []) : {}),
-    [inResubMode, resubmissionContext?.requiredDocuments]
-  );
-
-  const handleResubSuccessModalClose = async () => {
-    setResubSuccessModalOpen(false);
-    if (driverDraft?.id) {
-      try {
-        const refreshed = await fetchResubmissionContext(driverDraft.id);
-        setResubmissionContext(refreshed);
-      } catch {
-        // Mantener contexto previo si el refetch falla.
-      }
-    }
-    wizard.setCurrentStepId('bienvenida');
-    window.location.reload();
-  };
-
   const renderStep = () => {
     const id = wizard.currentStepId;
-    const pendingCount = pendingResubFields?.size || 0;
-    if (pendingCount > 0) {
-      return (
-        <Alert severity="info" sx={{ border: '1px solid #7c3aed', bgcolor: '#faf5ff' }}>
-          Los documentos con borde morado deben cargarse de nuevo antes de guardar.
-        </Alert>
-      );
-    }
     if (id === 'bienvenida') return <OnboardingIntro />;
     if (id === 'cuenta') return <StepCuenta rules={stepRules} />;
     if (id === 'verificacion') return <StepVerificacion />;
     if (id === 'personales') return <StepDatosPersonales rules={stepRules} />;
-    if (id === 'documentos') {
-      return (
-        <StepDocumentosPersonales
-          pendingResubFields={pendingResubFields}
-          resubMetaByField={resubMetaByField}
-        />
-      );
-    }
+    if (id === 'documentos') return <StepDocumentosPersonales />;
     if (id === 'licencia') return <StepLicencia rules={stepRules} />;
     if (id === 'vehiculo') return <StepVehiculo rules={stepRules} />;
-    if (id === 'fotos') {
-      return (
-        <StepFotosVehiculo
-          pendingResubFields={pendingResubFields}
-          resubMetaByField={resubMetaByField}
-        />
-      );
-    }
+    if (id === 'fotos') return <StepFotosVehiculo />;
     if (id === 'cita') return <StepCitaPresencial rules={stepRules} agencies={agencies} />;
     if (id === 'resumen') return <StepResumen onEditStep={wizard.goTo} />;
     return null;
@@ -601,17 +492,11 @@ const FormPreRegisterForSteps = () => {
 
   const visibleSteps = WIZARD_STEPS.filter((step) => wizard.stepOrder.includes(step.id));
   const blockedByExistingAgenda =
-    Boolean(existingAgenda?.id) && !successAgenda && !allowExistingAgendaFlow && !inResubMode;
+    Boolean(existingAgenda?.id) && !successAgenda && !allowExistingAgendaFlow;
   const showExistingAgendaNotice = blockedByExistingAgenda && wizard.currentStepId === 'bienvenida';
-  const showResubmissionNotice = inResubMode && wizard.currentStepId === 'bienvenida';
-  const agendaEstadoLabel = getAgendaEstadoLabel(
-    resubmissionContext?.agenda?.estado || existingAgenda?.estado
-  );
   let nextButtonLabel;
   if (blockedByExistingAgenda) {
     nextButtonLabel = 'Ya existe una cita';
-  } else if (showResubmissionNotice) {
-    nextButtonLabel = 'Corregir mis documentos';
   } else if (wizard.currentStepId === 'resumen') {
     nextButtonLabel = 'Agendar cita';
   }
@@ -745,53 +630,10 @@ const FormPreRegisterForSteps = () => {
                 <Typography variant="body2">{existingAgenda?.ciudad || '—'}</Typography>
               </Stack>
               <Chip
-                label={getAgendaEstadoLabel(existingAgenda?.estado)}
+                label={existingAgenda?.estado || existingAgenda?.status || 'pendiente'}
                 size="small"
                 sx={{ width: 'fit-content' }}
               />
-            </Stack>
-          </Paper>
-        ) : null}
-        {showResubmissionNotice ? (
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #f59e0b' }}>
-            <Stack spacing={1.5}>
-              <Typography fontWeight={800}>Acción requerida</Typography>
-              {resubmissionContext?.validation?.observations ? (
-                <Typography variant="body2" sx={{ color: '#64748b' }}>
-                  {resubmissionContext.validation.observations}
-                </Typography>
-              ) : null}
-              <Stack spacing={1}>
-                {(resubmissionContext?.requiredDocuments || []).map((doc) => (
-                  <Paper
-                    key={doc.evidenceId || doc.evidenceType}
-                    variant="outlined"
-                    sx={{ p: 1.5 }}
-                  >
-                    <Stack spacing={0.5}>
-                      <Typography fontWeight={700} variant="body2">
-                        {doc.label}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748b' }}>
-                        Estado: {doc.status === 'rejected' ? 'Rechazado' : 'Reenvío solicitado'}
-                        {doc.wizardStep ? ` · Paso: ${doc.wizardStep}` : ''}
-                      </Typography>
-                      {doc.reviewerNote ? (
-                        <Typography variant="caption">{doc.reviewerNote}</Typography>
-                      ) : null}
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <EventIcon fontSize="small" />
-                <Typography variant="body2">
-                  {formatDate(
-                    resubmissionContext?.agenda?.fecha_inicio || existingAgenda?.fecha_inicio
-                  )}
-                </Typography>
-              </Stack>
-              <Chip label={agendaEstadoLabel} size="small" sx={{ width: 'fit-content' }} />
             </Stack>
           </Paper>
         ) : null}
@@ -813,36 +655,29 @@ const FormPreRegisterForSteps = () => {
             nextLabel={nextButtonLabel}
           />
         </Paper>
-
-        <Dialog
-          open={resubSuccessModalOpen}
-          onClose={handleResubSuccessModalClose}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle sx={{ fontWeight: 800 }}>Documentos actualizados</DialogTitle>
-          <DialogContent>
-            <Typography variant="body1" sx={{ color: '#475569' }}>
-              Se han actualizado los documentos correctamente. Puedes volver al inicio para revisar
-              si falta corregir algún otro archivo pendiente.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button
-              variant="contained"
-              onClick={handleResubSuccessModalClose}
-              sx={{
-                bgcolor: '#7c3aed',
-                textTransform: 'none',
-                fontWeight: 700,
-                '&:hover': { bgcolor: '#6d28d9' },
-              }}
-            >
-              Volver al inicio
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Stack>
+      <Dialog open={loginPromptOpen} onClose={() => setLoginPromptOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Inicia sesion para continuar</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: '#475569' }}>
+            Identificamos que no has iniciado sesión. Primero debes hacerlo para continuar con este
+            proceso.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setLoginPromptOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleLoginRedirect}
+            disabled={authLoading}
+            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#1bb358' }}
+          >
+            Iniciar sesion
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

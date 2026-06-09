@@ -1,6 +1,6 @@
-import React from "react";
-import { Button, CircularProgress, Stack } from "@mui/material";
-import { FaArrowLeft, FaArrowRight, FaFloppyDisk } from "react-icons/fa6";
+import React from 'react';
+import { Button, CircularProgress, Stack } from '@mui/material';
+import { FaArrowLeft, FaArrowRight, FaFloppyDisk } from 'react-icons/fa6';
 
 const StepNavigation = ({
   canGoBack,
@@ -18,7 +18,7 @@ const StepNavigation = ({
       disabled={!canGoBack || loading}
       onClick={onBack}
       startIcon={<FaArrowLeft />}
-      sx={{ textTransform: "none" }}
+      sx={{ textTransform: 'none' }}
     >
       Anterior
     </Button>
@@ -29,19 +29,25 @@ const StepNavigation = ({
         disabled={loading || nextDisabled}
         onClick={onNext}
         endIcon={
-          loading ? <CircularProgress size={14} color="inherit" /> : isLastStep ? <FaFloppyDisk /> : <FaArrowRight />
+          loading ? (
+            <CircularProgress size={14} color="inherit" />
+          ) : isLastStep ? (
+            <FaFloppyDisk />
+          ) : (
+            <FaArrowRight />
+          )
         }
         sx={{
-          textTransform: "none",
-          bgcolor: "#f2d100",
-          color: "#111",
+          textTransform: 'none',
+          bgcolor: '#f2d100',
+          color: '#111',
           fontWeight: 700,
           opacity: loading || nextDisabled ? 0.4 : 1,
-          cursor: loading || nextDisabled ? "not-allowed" : "pointer",
-          "&:hover": { bgcolor: "#e4c600" },
+          cursor: loading || nextDisabled ? 'not-allowed' : 'pointer',
+          '&:hover': { bgcolor: '#e4c600' },
         }}
       >
-        {loading ? "Guardando..." : nextLabel || (isLastStep ? "Confirmar envio" : "Siguiente")}
+        {loading ? 'Guardando...' : nextLabel || (isLastStep ? 'Agendar Cita' : 'Siguiente')}
       </Button>
     ) : null}
   </Stack>
