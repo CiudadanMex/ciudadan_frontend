@@ -8,10 +8,8 @@
 .env
 ciudadan-app.rar
 
-
 # testing
 /coverage
-
 
 # misc
 .env
@@ -24,4 +22,13 @@ ciudadan-app.rar
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
 .agents/
+
+/package-lock.json
+/yarn.lock
+
+# Cursor and Agents
+.cursor
+.agents
+/skills-lock.json

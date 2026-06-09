@@ -15,7 +15,21 @@ const inferPreviewUrl = (entry) => {
   return `${host}${direct}`;
 };
 
-const DocumentUploadField = ({ name, label, helper, required = false }) => {
+const RESUB_HIGHLIGHT_SX = {
+  border: "2px solid #7c3aed",
+  bgcolor: "#faf5ff",
+  boxShadow: "0 0 0 3px rgba(124, 58, 237, 0.18)",
+};
+
+const DocumentUploadField = ({
+  name,
+  label,
+  helper,
+  required = false,
+  highlightResub = false,
+  resubStatusLabel = null,
+  resubReviewerNote = null,
+}) => {
   const {
     register,
     watch,
@@ -56,15 +70,43 @@ const DocumentUploadField = ({ name, label, helper, required = false }) => {
   const hasError = Boolean(errors?.[name]);
 
   return (
-    <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        ...(highlightResub
+          ? RESUB_HIGHLIGHT_SX
+          : { border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }),
+      }}
+    >
       <Stack spacing={1}>
-        <Typography fontWeight={700}>
-          {label}
-          {required ? " *" : ""}
-        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Typography fontWeight={700}>
+            {label}
+            {required ? " *" : ""}
+          </Typography>
+          {highlightResub ? (
+            <Chip
+              label={resubStatusLabel || "Reenvío requerido"}
+              size="small"
+              sx={{
+                bgcolor: "#ede9fe",
+                color: "#5b21b6",
+                fontWeight: 700,
+                border: "1px solid #7c3aed",
+              }}
+            />
+          ) : null}
+        </Stack>
         <Typography variant="caption" sx={{ color: "#64748b" }}>
           {helper}
         </Typography>
+        {highlightResub && resubReviewerNote ? (
+          <Typography variant="caption" sx={{ color: "#6d28d9", fontWeight: 600 }}>
+            Nota del revisor: {resubReviewerNote}
+          </Typography>
+        ) : null}
 
         <Button component="label" variant="outlined" sx={{ textTransform: "none", width: "fit-content" }}>
           {rules.multiple ? "Agregar archivos" : "Seleccionar archivo"}

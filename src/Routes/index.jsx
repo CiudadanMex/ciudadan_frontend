@@ -119,6 +119,7 @@ import PreRegistroConductor2 from '../components/Taxiz/PreRegistroConductor2.jsx
 import ConductoresAgencia from '../components/Cowork/ConductoresAgencia.jsx';
 import TestToken from '../components/TestToken.jsx';
 import FormPreRegisterForSteps from '../Pages/Taxis/FormPreRegisterForSteps.jsx';
+import DriverVerificationPage from '../Pages/Taxis/DriverVerificationPage.jsx';
 
 // ---------- Wrappers (usar useParams) ----------
 const EditarContenidoWrapper = () => {
@@ -181,6 +182,7 @@ const Rutas = () => (
     <Route path="/taxis/viaje/:travelId" element={<TripView />} />
 
     <Route path="/herramientas/agencia/conductores" element={<ConductoresAgencia />} />
+    <Route path="/validations/:validationId/review" element={<DriverVerificationPage />} />
 
     {/* Food / Restaurantes */}
     <Route path="/food" element={<RestaurantesRoute />} />

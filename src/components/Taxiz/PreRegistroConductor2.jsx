@@ -715,7 +715,6 @@ useEffect(() => {
         usuario: userData.id,
         ciudad: form.ciudad.trim(),
         estado: "pendiente",
-        status: "pendiente",
         fecha_inicio: fechaISO,
         descripcion: "Preregistro conductor",
         observaciones: "preregistro conductor",
