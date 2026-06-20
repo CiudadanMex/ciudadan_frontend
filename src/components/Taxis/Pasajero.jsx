@@ -934,8 +934,8 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       <BottomSheet
         initialState='collapsed'
         onStateChange={setSheetState}
-        collapsedHeight={90}
-        mediumHeight={380}
+        collapsedHeight={150}
+        mediumHeight={350}
         fullHeight={window.innerHeight - 50}
       >
         {getSheetContent()}
