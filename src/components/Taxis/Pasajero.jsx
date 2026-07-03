@@ -13,18 +13,18 @@ import taxiIcon from '../../assets/taxi_marker.png';
 const DEFAULT_FROM = { lat: 19.432608, lng: -99.133209 };
 //const DEFAULT_TO = { lat: 19.432608, lng: -99.133209 };
 
-const Pasajero = ({ onFoundDrivers = () => {} }) => {
+const Pasajero = ({ onFoundDrivers = () => { } }) => {
   const { user } = useAuth0();
   const navigate = useNavigate();
 
   const [fromAddress, setFromAddress] = useState('');
   const [toAddress, setToAddress] = useState('');
 
-  const [fromCoordinates, setFromCoordinates] = useState(DEFAULT_FROM);
-  const [toCoordinates, setToCoordinates] = useState(DEFAULT_FROM);
+  const [fromCoordinates, setFromCoordinates] = useState(null);
+  const [toCoordinates, setToCoordinates] = useState(null);
 
-  const [fromMarkerPosition, setFromMarkerPosition] = useState(DEFAULT_FROM);
-  const [toMarkerPosition, setToMarkerPosition] = useState(DEFAULT_FROM);
+  const [fromMarkerPosition, setFromMarkerPosition] = useState(null);
+  const [toMarkerPosition, setToMarkerPosition] = useState(null);
 
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [error, setError] = useState(null);
@@ -58,6 +58,9 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
   // Selected offer for modal
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const strapiUrl = process.env.REACT_APP_STRAPI_URL || "";
+  const strapiToken = process.env.REACT_APP_STRAPI_TOKEN || "";
 
   // Util: stringify safe
   const safeStringify = (obj, max = 2000) => {
@@ -152,7 +155,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       }
 
       try {
-        const { coordinates, price, id } = offer;
+        const { coordinates, price, id, driverId } = offer;
         const position = new window.google.maps.LatLng(
           coordinates.lat,
           coordinates.lng,
@@ -218,7 +221,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
 
         // Listener en marker: al click abrir modal y seleccionar oferta
         const markerClickListener = marker.addListener('click', () => {
-          setSelectedOffer({ id, coordinates, price });
+          setSelectedOffer({ id, coordinates, price, driverId });
           setIsModalOpen(true);
         });
 
@@ -233,7 +236,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
               elem.style.cursor = 'pointer';
               if (!elem._hasClick) {
                 elem.addEventListener('click', () => {
-                  setSelectedOffer({ id, coordinates, price });
+                  setSelectedOffer({ id, coordinates, price, driverId });
                   setIsModalOpen(true);
                 });
                 elem._hasClick = true;
@@ -368,9 +371,13 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
             );
             return;
           }
-          const id = `offer-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+          const id = payload.meta.travelId;
+          const driverId = payload.meta.driverId || payload.driverId || null;
+          console.log('id de conductor:', driverId);
+
           const offer = {
             id,
+            driverId,
             coordinates: {
               lat: Number(coordinates.lat),
               lng: Number(coordinates.lng),
@@ -498,7 +505,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       if (directionsRendererRef.current) {
         try {
           directionsRendererRef.current.setMap(null);
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, [mapRef, googleMapsLoaded]);
@@ -623,8 +630,26 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       destinationAddress: toAddress || null,
       timestamp: new Date().toISOString(),
     };
+    console.log('[buscarTaxistas] payload:', safeStringify(payload, 2000));
 
     try {
+      const url = `${strapiUrl}/api/configuraciones-usuarios?filters[email][$eq]=${userEmail}&populate=*`;
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (strapiToken) {
+        headers.Authorization = `Bearer ${strapiToken}`;
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error("Error buscando usuario en Strapi");
+      }
+
+      const userData = await response.json();
+      const settings = userData?.data?.[0]?.attributes?.configuraciones || {};
+      console.log("[AcceptTrip] configuraciones del usuario:", settings);
+
       // 1) Intentar POST a /test/send-trip (backend)
       const backendBase =
         process.env.REACT_APP_SOCKET_URL ||
@@ -639,6 +664,7 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userEmail,
+              settings,
               originCoordinates: payload.originCoordinates,
               destinationCoordinates: payload.destinationCoordinates,
               originAdress: payload.originAddress,
@@ -934,8 +960,8 @@ const Pasajero = ({ onFoundDrivers = () => {} }) => {
       <BottomSheet
         initialState='collapsed'
         onStateChange={setSheetState}
-        collapsedHeight={90}
-        mediumHeight={380}
+        collapsedHeight={150}
+        mediumHeight={350}
         fullHeight={window.innerHeight - 50}
       >
         {getSheetContent()}
