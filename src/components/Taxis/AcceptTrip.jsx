@@ -244,7 +244,10 @@ export default function AcceptTrip({ selectedOffer, acceptOffer, closeModal }) {
                 <strong>Vehículo:</strong> {vehicleLabel}
               </div>
               <div style={{ fontSize: 16, marginTop: 5 }}>
-                <strong>Precio:</strong> ${selectedOffer.price}
+                <strong>Precio:</strong> ${selectedOffer.price} MXN
+              </div>
+              <div style={{ fontSize: 16, marginTop: 5 }}>
+                <strong>Calificación del conductor:</strong> {selectedOffer.driverRating ? `${selectedOffer.driverRating} ⭐` : '-'}
               </div>
             </div>
           </div>
